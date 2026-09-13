@@ -132,9 +132,12 @@ object QueryParser {
 
         for (i in tokens.indices) {
             if (consumed[i]) continue
-            val t = tokens[i].lowercase().trim('.', ',')
-            val next = tokens.getOrNull(i + 1)?.lowercase()?.trim('.', ',')
-            val nextNext = tokens.getOrNull(i + 2)?.lowercase()?.trim('.', ',')
+            // Only TRAILING punctuation is shed. Stripping a leading dot
+            // would turn the extension filter ".pdf" into the type word
+            // "pdf", which is a different query with different results.
+            val t = tokens[i].lowercase().trimEnd('.', ',', '!', '?')
+            val next = tokens.getOrNull(i + 1)?.lowercase()?.trimEnd('.', ',')
+            val nextNext = tokens.getOrNull(i + 2)?.lowercase()?.trimEnd('.', ',')
 
             // ">10mb", "over 500 mb", "larger than 1gb"
             val explicitSize = parseSize(t)
@@ -178,7 +181,7 @@ object QueryParser {
             }
 
             // "today", "yesterday", "this week", "last month", "older than a year"
-            val time = parseTime(t, next, nextNext, now)
+            val time = parseTime(t, next, nextNext, tokens.getOrNull(i + 3)?.lowercase(), now)
             if (time != null) {
                 terms.add(time.first)
                 for (k in 0 until time.second) take(i + k)
@@ -230,10 +233,21 @@ object QueryParser {
         return null
     }
 
+    private val ARTICLES = setOf("a", "an", "one", "the")
+
+    private fun durationDays(unit: String?): Long? = when (unit) {
+        "day", "days" -> 1L
+        "week", "weeks" -> 7L
+        "month", "months" -> 30L
+        "year", "years" -> 365L
+        else -> null
+    }
+
     private fun parseTime(
         t: String,
         next: String?,
         nextNext: String?,
+        fourth: String?,
         now: Long,
     ): Pair<Term, Int>? {
         fun daysAgo(d: Long) = now - TimeUnit.DAYS.toMillis(d)
@@ -241,20 +255,28 @@ object QueryParser {
             t == "today" -> Term.ModifiedAfter(startOfDay(now), "today") to 1
             t == "yesterday" -> Term.ModifiedAfter(startOfDay(now) - TimeUnit.DAYS.toMillis(1), "since yesterday") to 1
             t == "recent" || t == "recently" -> Term.ModifiedAfter(daysAgo(7), "in the last week") to 1
-            (t == "this" || t == "last" || t == "past") && next != null -> when (next) {
-                "week" -> Term.ModifiedAfter(daysAgo(7), "in the last week") to 2
-                "month" -> Term.ModifiedAfter(daysAgo(30), "in the last month") to 2
-                "year" -> Term.ModifiedAfter(daysAgo(365), "in the last year") to 2
-                "day" -> Term.ModifiedAfter(daysAgo(1), "in the last day") to 2
-                else -> null
+            (t == "this" || t == "last" || t == "past") && next != null -> {
+                val d = durationDays(next)
+                if (d == null) {
+                    null
+                } else {
+                    val spoken = if (d == 1L) "in the last day" else "in the last ${next.trimEnd('s')}"
+                    Term.ModifiedAfter(daysAgo(d), spoken) to 2
+                }
             }
             t == "old" || t == "older" -> {
                 if (next == "than" && nextNext != null) {
-                    val d = when (nextNext) {
-                        "week" -> 7L; "month" -> 30L; "year" -> 365L; "day" -> 1L
-                        else -> null
+                    // People write "older than a year", not "older than year".
+                    // The article has to be stepped over or the unit is never
+                    // reached and the whole phrase silently becomes a name.
+                    val skipped = if (nextNext in ARTICLES) 1 else 0
+                    val unit = if (skipped == 1) fourth else nextNext
+                    val d = durationDays(unit)
+                    if (d != null) {
+                        Term.ModifiedBefore(daysAgo(d), "older than a $unit") to (3 + skipped)
+                    } else {
+                        null
                     }
-                    if (d != null) Term.ModifiedBefore(daysAgo(d), "older than a $nextNext") to 3 else null
                 } else {
                     Term.ModifiedBefore(daysAgo(365), "older than a year") to 1
                 }

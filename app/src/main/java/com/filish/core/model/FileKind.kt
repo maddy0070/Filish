@@ -118,6 +118,10 @@ object Kinds {
     private val archive = setOf(
         "zip", "tar", "gz", "tgz", "bz2", "tbz", "xz", "txz", "7z", "rar",
         "jar", "war", "iso", "cab", "lz", "lzma", "zst", "z", "arj", "ar",
+        // The compound forms that extensionOf returns as a single unit,
+        // because the user thinks of "tar.gz" as the format rather than as
+        // a "gz" that happens to contain a "tar".
+        "tar.gz", "tar.bz2", "tar.xz", "tar.zst",
     )
 
     private val app = setOf("apk", "apks", "xapk", "apkm", "aab", "obb")
