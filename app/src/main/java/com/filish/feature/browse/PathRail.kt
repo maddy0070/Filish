@@ -1,11 +1,14 @@
 package com.filish.feature.browse
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.filish.core.fs.Volume
 import com.filish.core.model.Format
@@ -82,34 +86,94 @@ fun PathRail(
     val type = Filish.type
     val listState = rememberLazyListState()
 
-    // Anchor to the trailing edge whenever the path changes, so the folder you
-    // are in is never the part that scrolled away.
-    LaunchedEffect(tokens.size, tokens.lastOrNull()?.path) {
-        if (tokens.isNotEmpty()) listState.scrollToItem(tokens.lastIndex)
-    }
+    /*
+     * The current folder is pinned to the trailing edge STRUCTURALLY, not by
+     * scrolling there after layout.
+     *
+     * The first version scrolled the rail to its last item in a LaunchedEffect.
+     * That worked, right up until it did not: an effect that has not run yet,
+     * a path that changes during composition, or a recomposition that resets
+     * the list all leave the current folder off screen - and "which folder am
+     * I in" is the one question this component exists to answer. Depending on
+     * a side effect for the guarantee is the wrong shape.
+     *
+     * Reversing both the list and the layout direction makes it structural.
+     * With reverseLayout the first item is placed at the trailing edge, so
+     * passing the tokens reversed pins the current folder there permanently
+     * and lets ancestors overflow off the leading edge, which is exactly the
+     * behaviour wanted. Reading order is unchanged: laid out right to left
+     * from a reversed list, the tokens still read Places to current from left
+     * to right.
+     *
+     * The separator consequently trails each ancestor instead of leading it,
+     * so the current folder carries no chevron of its own.
+     */
+    val railTokens = remember(tokens) { tokens.asReversed() }
+
+    /*
+     * Places is pinned at the leading edge, outside the scrolling rail.
+     *
+     * Making the current folder structurally visible pushed the root off the
+     * other end - and the two ends of a path are precisely the two places a
+     * person wants to go. Everything between them is intermediate and is what
+     * should overflow. So both ends are fixed and only the middle scrolls,
+     * which is the arrangement with the least useful thing hidden rather than
+     * the most useful.
+     */
+    val rootToken = tokens.firstOrNull()
+    val scrollingTokens = remember(railTokens) { railTokens.dropLast(1) }
 
     Row(
         modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LazyRow(
-            state = listState,
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = Space.gutter, end = Space.group,
-            ),
-        ) {
-            itemsIndexed(items = tokens, key = { _, t -> t.path }) { index, token ->
-                val isCurrent = index == tokens.lastIndex
-                if (index > 0) {
+        if (rootToken != null) {
+            Box(
+                Modifier
+                    .padding(start = Space.gutter - Space.near)
+                    .clip(RoundedCornerShape(Corner.token))
+                    .pressable(
+                        onClick = { onTokenClick(rootToken) },
+                        contentDescription = "Go to ${rootToken.label}",
+                        shape = RoundedCornerShape(Corner.token),
+                    )
+                    .padding(horizontal = Space.near, vertical = Space.near - 1.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicTextCompat(
+                        rootToken.label,
+                        type.action.copy(color = palette.ink2),
+                        maxLines = 1,
+                    )
                     Glyph(
-                        Glyphs.ChevronRight, null,
-                        size = 13.dp,
+                        Glyphs.ChevronRight, null, size = 13.dp,
                         tint = palette.ink2.copy(alpha = 0.55f),
-                        modifier = Modifier.padding(horizontal = Space.bond),
+                        modifier = Modifier.padding(start = Space.near - 2.dp),
                     )
                 }
+            }
+        }
+
+        /*
+         * The scrolling middle fades out at its leading edge.
+         *
+         * Without it an ancestor clipped mid-token leaves its trailing chevron
+         * floating with nothing attached, which reads as a rendering fault
+         * rather than as overflow. The fade says "this continues" in the way
+         * a hard cut cannot.
+         */
+        Box(Modifier.weight(1f)) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            reverseLayout = true,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                start = Space.near, end = Space.group,
+            ),
+        ) {
+            itemsIndexed(items = scrollingTokens, key = { _, t -> t.path }) { index, token ->
+                val isCurrent = index == 0
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(Corner.token))
@@ -141,8 +205,41 @@ fun PathRail(
                             },
                             maxLines = 1,
                         )
+                        // Trails the ancestor rather than leading it, because
+                        // the list is laid out from the trailing edge.
+                        if (!isCurrent) {
+                            Glyph(
+                                Glyphs.ChevronRight, null,
+                                size = 13.dp,
+                                tint = palette.ink2.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(start = Space.near - 2.dp),
+                            )
+                        }
                     }
                 }
+            }
+        }
+
+            // matchParentSize, not fillMaxHeight: a fillMax child expands a
+            // Box to the incoming constraint, which here is the whole screen,
+            // and the header silently became full height. matchParentSize
+            // takes the Box's resolved size without participating in it.
+            // Only when ancestors are genuinely off screen. On a narrow
+            // device the scrolling region is short, and an unconditional fade
+            // washed over the current folder itself - which is precisely the
+            // token this component exists to keep legible.
+            if (listState.canScrollForward) {
+            Canvas(Modifier.matchParentSize()) {
+                val fadeWidth = Space.zone.toPx()
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(palette.ground0, palette.ground0.copy(alpha = 0f)),
+                        startX = 0f,
+                        endX = fadeWidth,
+                    ),
+                    size = androidx.compose.ui.geometry.Size(fadeWidth, size.height),
+                )
+            }
             }
         }
 

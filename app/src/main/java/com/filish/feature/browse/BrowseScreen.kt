@@ -140,14 +140,14 @@ fun BrowseScreen(
                     }
 
                     is Listing.Denied -> ProblemState(
-                        what = "FILISH cannot read this folder",
+                        what = "Filish cannot read this folder",
                         why = if (listing.needsAllFilesAccess) {
                             "Android restricts folders outside your media directories unless " +
                                 "an app has all-files access."
                         } else {
                             "The system denied read access to this location."
                         },
-                        whatNext = "Grant access in Settings, or browse a folder FILISH can reach.",
+                        whatNext = "Grant access in Settings, or browse a folder Filish can reach.",
                         severity = Severity.Locked,
                     )
 

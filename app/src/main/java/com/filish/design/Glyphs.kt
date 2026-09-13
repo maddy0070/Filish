@@ -116,12 +116,22 @@ object Glyphs {
      * is worth one exception to the family rule.
      */
     val Folder = Glyph { s, c, st ->
+        // One closed silhouette rather than a rectangle with a line drawn
+        // inside it. The first version layered a tab path over a box and read
+        // as a plain container with a stray diagonal - a folder has to be one
+        // shape whose outline steps up on the left, or it reads as a card.
         poly(
             s,
-            listOf(3f to 7f, 9f to 7f, 11f to 9.5f, 21f to 9.5f),
-            c, st,
+            listOf(
+                3f to 19f,
+                3f to 6.5f,
+                9.2f to 6.5f,
+                11.4f to 9.2f,
+                21f to 9.2f,
+                21f to 19f,
+            ),
+            c, st, close = true,
         )
-        box(s, 3f, 7f, 18f, 12f, 2.5f, c, st)
     }
 
     val FolderOpen = Glyph { s, c, st ->

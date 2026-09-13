@@ -402,7 +402,7 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                 refresh()
                 onResult(null)
             } else {
-                onResult("FILISH could not create a folder here.")
+                onResult("Filish could not create a folder here.")
             }
         }
     }

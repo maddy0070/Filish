@@ -293,7 +293,7 @@ private fun TextBody(node: FileNode, onClose: () -> Unit) {
     LaunchedEffect(node.path) {
         val result = withContext(Dispatchers.IO) { readText(File(node.path)) }
         if (result == null) {
-            failure = "FILISH could not read this file. It may not be text, or the system " +
+            failure = "Filish could not read this file. It may not be text, or the system " +
                 "may have denied access."
         } else {
             content = result.text
@@ -353,7 +353,7 @@ private fun TextBody(node: FileNode, onClose: () -> Unit) {
                 Gap(Space.zone)
                 if (truncated) {
                     BasicTextCompat(
-                        "This file continues beyond what is shown. FILISH displays the first " +
+                        "This file continues beyond what is shown. Filish displays the first " +
                             "megabyte so the viewer stays responsive.",
                         type.meta.copy(color = palette.ink2),
                     )

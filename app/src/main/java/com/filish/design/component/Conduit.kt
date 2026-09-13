@@ -148,7 +148,9 @@ fun Conduit(
             val sourceW = w * 0.42f * remaining
             if (sourceW > 0.5f) {
                 drawRoundRect(
-                    color = accent.copy(alpha = 0.30f),
+                    // Strong enough to read as material still waiting rather
+                    // than as unfilled track.
+                    color = accent.copy(alpha = 0.42f),
                     topLeft = Offset(0f, top),
                     size = Size(sourceW, bandH),
                     cornerRadius = radius,
@@ -172,8 +174,15 @@ fun Conduit(
                 val gapEnd = w - destW
                 val gap = gapEnd - gapStart
                 if (gap > bandH) {
-                    val count = 7
-                    val segW = bandH * 0.5f
+                    // Elongated along the axis of travel. Circular segments
+                    // are direction-neutral and read as decoration; a segment
+                    // twice as long as it is tall reads as something moving.
+                    val segW = bandH * 1.05f
+                    // The count follows the space available rather than being
+                    // fixed. With a constant count the segments overlap into a
+                    // single smear as the gap closes toward the end of a
+                    // transfer - which is exactly when the user is watching.
+                    val count = (gap / (segW * 2.4f)).toInt().coerceIn(2, 7)
                     for (i in 0 until count) {
                         val p = ((phase + i.toFloat() / count) % 1f)
                         val x = gapStart + p * (gap - segW)
@@ -186,8 +195,8 @@ fun Conduit(
                             drawRoundRect(
                                 color = accent.copy(alpha = alpha),
                                 topLeft = Offset(x, top + bandH * 0.28f),
-                                size = Size(segW, bandH * 0.44f),
-                                cornerRadius = CornerRadius(bandH * 0.22f, bandH * 0.22f),
+                                size = Size(segW, bandH * 0.42f),
+                                cornerRadius = CornerRadius(bandH * 0.21f, bandH * 0.21f),
                             )
                         }
                     }

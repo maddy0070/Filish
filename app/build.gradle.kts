@@ -117,6 +117,13 @@ android {
     lint {
         abortOnError = false
     }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 // The font must be on disk before assets are merged into the APK.
@@ -146,4 +153,12 @@ dependencies {
     implementation(libs.exifinterface)
 
     testImplementation(libs.junit)
+    // Robolectric renders Compose to real bitmaps on the JVM. Without it this
+    // project has no way to actually look at its own interface - there is no
+    // KVM in the build environment, so a hardware emulator is not available.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

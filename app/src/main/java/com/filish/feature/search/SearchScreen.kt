@@ -246,7 +246,7 @@ private fun Suggestions(onPick: (String) -> Unit) {
         SectionLabel("Try")
         Gap(Space.group)
         BasicTextCompat(
-            "FILISH understands more than file names. Describe what you are after.",
+            "Filish understands more than file names. Describe what you are after.",
             type.body.copy(color = palette.ink2),
         )
         Gap(Space.apart)

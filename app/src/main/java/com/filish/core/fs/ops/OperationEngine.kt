@@ -117,7 +117,7 @@ class OperationEngine(
                 is NotEnoughSpace ->
                     "This needs ${com.filish.core.model.Format.size(needed)} but only " +
                         "${com.filish.core.model.Format.size(available)} is free on $volume."
-                is DestinationUnwritable -> "FILISH cannot write to this folder."
+                is DestinationUnwritable -> "Filish cannot write to this folder."
                 is DestinationInsideSource ->
                     "That folder is inside the folder you are moving. It would have to " +
                         "contain itself."
@@ -541,7 +541,7 @@ class OperationEngine(
     /** Turns an exception into something a person can act on. */
     private fun describe(t: Throwable, source: File, target: File): String = when {
         !source.exists() -> "It disappeared while being read"
-        !source.canRead() -> "FILISH is not allowed to read it"
+        !source.canRead() -> "Filish is not allowed to read it"
         target.parentFile?.canWrite() == false -> "The destination is read-only"
         t is IOException && t.message?.contains("space", true) == true ->
             "The destination ran out of space"

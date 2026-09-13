@@ -188,7 +188,7 @@ fun StorageScreen(
                                 "${Format.count(report.foldersScanned)} folders" +
                                 if (report.unaccountedBytes > 0) {
                                     "  ·  ${Format.size(report.unaccountedBytes)} used by the " +
-                                        "system and other apps, which FILISH cannot read"
+                                        "system and other apps, which Filish cannot read"
                                 } else {
                                     ""
                                 },

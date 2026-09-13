@@ -12,3 +12,4 @@ local.properties
 /app/src/main/assets/fonts/
 *.keystore
 !debug.keystore
+/app/build/screenshots/

@@ -368,7 +368,7 @@ private fun describe(error: PlaybackException): String = when (error.errorCode) 
         "The file is no longer there."
 
     PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
-        "FILISH is not allowed to read this file."
+        "Filish is not allowed to read this file."
 
     PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
     PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,

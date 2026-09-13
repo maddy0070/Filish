@@ -191,7 +191,7 @@ private fun composition(plan: DeleteEngine.Plan): String {
 private fun explanation(plan: DeleteEngine.Plan): String? = when {
     plan.isFullyRecoverable ->
         "These go to your device's trash, where Android keeps them until it " +
-            "expires them. FILISH will tell you the exact date once they are there."
+            "expires them. Filish will tell you the exact date once they are there."
     plan.isMixed ->
         "Some of these are in your device's media library and can be recovered. " +
             "The rest are not, and will be gone immediately."

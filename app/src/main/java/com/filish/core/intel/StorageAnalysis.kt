@@ -186,7 +186,7 @@ object Findings {
                     id = "dupes",
                     headline = "Possible duplicates",
                     detail = "${report.duplicateCandidates} files share an exact size with " +
-                        "another file. FILISH can compare their contents to find real copies.",
+                        "another file. Filish can compare their contents to find real copies.",
                     bytes = report.duplicateCandidateBytes,
                     weight = 80,
                     action = FindingAction.OpenDuplicates,
@@ -241,7 +241,7 @@ object Findings {
                 Finding(
                     id = "hotspot",
                     headline = "One folder holds most of your storage",
-                    detail = "${f.name} accounts for a quarter or more of everything FILISH " +
+                    detail = "${f.name} accounts for a quarter or more of everything Filish " +
                         "can see, across ${f.fileCount} files.",
                     bytes = f.bytes,
                     weight = 70,

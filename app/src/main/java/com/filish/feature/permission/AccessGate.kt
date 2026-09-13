@@ -75,16 +75,16 @@ fun AccessGate(
 
             BasicTextCompat(
                 if (level == AccessLevel.None) {
-                    "FILISH needs to see your storage"
+                    "Filish needs to see your storage"
                 } else {
-                    "FILISH can only see part of your storage"
+                    "Filish can only see part of your storage"
                 },
                 type.title.copy(color = palette.ink0),
             )
             Gap(Space.group)
             BasicTextCompat(
                 if (level == AccessLevel.None) {
-                    "To browse, organise and analyse your files, FILISH needs permission to " +
+                    "To browse, organise and analyse your files, Filish needs permission to " +
                         "read them. Without it there is nothing to show you."
                 } else {
                     "Photos, video and audio are visible. Documents, downloads, archives and " +
@@ -97,7 +97,7 @@ fun AccessGate(
             Gap(Space.apart)
             Assurance(
                 "Nothing leaves your device",
-                "FILISH does not declare the internet permission. The application cannot open " +
+                "Filish does not declare the internet permission. The application cannot open " +
                     "a network connection at all - not for analytics, not for crash reports, " +
                     "not for anything. This is enforced by Android, not promised by us.",
             )

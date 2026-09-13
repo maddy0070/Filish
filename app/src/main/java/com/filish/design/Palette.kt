@@ -26,6 +26,14 @@ import androidx.compose.ui.graphics.Color
  * the warm paper ground, which makes it read as an instrument marking rather
  * than as decoration.
  *
+ * The three ink steps are not chosen by eye. Every ink-on-ground pair FILISH
+ * actually renders is asserted against WCAG 2.1 AA in ContrastTest, and the
+ * ramp is balanced so that all three steps clear 4.5:1 *and* stay visibly
+ * distinct from one another - the first attempt at this had a recessive
+ * secondary grey that measured 3.45:1, which is unreadable in sunlight and
+ * looked perfectly fine on screen. If a colour here is changed and that test
+ * fails, the change was wrong.
+ *
  * Dark is designed, not inverted. The dark ground is a near-black with a
  * slight blue cast rather than #000 - pure black removes the tonal headroom
  * that separation depends on, and smears on OLED panels during scroll. The
@@ -102,8 +110,8 @@ val LightPalette = Palette(
     lineStrong = Color(0xFFCEC7BA),
 
     ink0 = Color(0xFF16161A),
-    ink1 = Color(0xFF57544D),
-    ink2 = Color(0xFF8A867E),
+    ink1 = Color(0xFF3F3C36),
+    ink2 = Color(0xFF6B6760),
     inkOn = Color(0xFFFBF9F6),
 
     signal = Color(0xFF2E7D6E),
@@ -115,7 +123,7 @@ val LightPalette = Palette(
 
     danger = Color(0xFFB3403A),
     dangerWash = Color(0xFFF6E2E0),
-    warn = Color(0xFF9A6B12),
+    warn = Color(0xFF8A6010),
     warnWash = Color(0xFFF6EBD6),
     ok = Color(0xFF3F6B4C),
     okWash = Color(0xFFE0EBE1),
@@ -127,8 +135,8 @@ val LightPalette = Palette(
     catArchive = Color(0xFF8A6A3B),
     catApp = Color(0xFF8E5A72),
     catCode = Color(0xFF566B8C),
-    catOther = Color(0xFF7D7A74),
-    catFolder = Color(0xFF57544D),
+    catOther = Color(0xFF6B6760),
+    catFolder = Color(0xFF3F3C36),
 
     isDark = false,
 )
@@ -143,7 +151,7 @@ val DarkPalette = Palette(
 
     ink0 = Color(0xFFF2F0EC),
     ink1 = Color(0xFFA8A49C),
-    ink2 = Color(0xFF76736D),
+    ink2 = Color(0xFF8E8A83),
     inkOn = Color(0xFF0E0E11),
 
     signal = Color(0xFF4FB3A0),

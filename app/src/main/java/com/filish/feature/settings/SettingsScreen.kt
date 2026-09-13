@@ -142,7 +142,7 @@ fun SettingsScreen(
             )
             Switch(
                 label = "Measure folder sizes",
-                detail = "FILISH walks each folder in the background so you can see how much " +
+                detail = "Filish walks each folder in the background so you can see how much " +
                     "space it really takes. Turn this off if you would rather it only " +
                     "measured when you ask.",
                 checked = settings.autoMeasureFolders,
@@ -212,7 +212,7 @@ fun SettingsScreen(
             Column(Modifier.padding(horizontal = Space.gutter)) {
                 Fact(
                     "No network access at all",
-                    "FILISH does not declare Android's internet permission. The application " +
+                    "Filish does not declare Android's internet permission. The application " +
                         "cannot open a network connection, so nothing about your files can " +
                         "leave this device. This is enforced by the system rather than " +
                         "promised by us - you can verify it in Android's app info screen.",
@@ -220,7 +220,7 @@ fun SettingsScreen(
                 Gap(Space.group + 2.dp)
                 Fact(
                     "No index of your files is kept",
-                    "FILISH does not build a database of your storage. Searching and analysis " +
+                    "Filish does not build a database of your storage. Searching and analysis " +
                         "read the filesystem when you ask, every time. Nothing about your " +
                         "files is stored anywhere but the files themselves.",
                 )
@@ -228,7 +228,7 @@ fun SettingsScreen(
                 Fact(
                     "Deleting uses your device's own trash",
                     "Where Android allows it, deleted files go to the system trash and can be " +
-                        "recovered until Android removes them. FILISH tells you which files " +
+                        "recovered until Android removes them. Filish tells you which files " +
                         "those are before you confirm, and reports the exact date your device " +
                         "set. Where it is not possible, it says so instead.",
                 )
@@ -239,7 +239,7 @@ fun SettingsScreen(
                         "Set in Clash Display by Indian Type Foundry, embedded in this build " +
                             "under the ITF Free Font License."
                     } else {
-                        "Clash Display was not bundled in this build, so FILISH is using your " +
+                        "Clash Display was not bundled in this build, so Filish is using your " +
                             "device's system typeface. Everything still works; it simply looks " +
                             "less like itself."
                     },
