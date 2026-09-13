@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The visible interface is built entirely in Compose. These platform themes
+      exist only to control the window itself: FILISH paints edge to edge and
+      supplies its own system-bar treatment, so the platform decoration is
+      stripped rather than styled.
+    -->
+    <style name="Theme.Filish" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_ground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowActivityTransitions">true</item>
+    </style>
+
+    <!-- The launch window: the first frame the user sees. It is the same ground
+         colour as the app shell so there is no flash between window and content. -->
+    <style name="Theme.Filish.Splash" parent="Theme.Filish">
+        <item name="android:windowBackground">@color/window_ground</item>
+    </style>
+</resources>
