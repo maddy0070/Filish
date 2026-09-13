@@ -6,7 +6,16 @@
       FILISH is offline-first. There is deliberately NO android.permission.INTERNET
       declared: the application cannot open a network socket even if a transitive
       dependency tried to. This is enforcement, not a promise.
+
+      ACCESS_NETWORK_STATE is removed explicitly. Media3 declares it for its
+      streaming code paths, which FILISH never reaches - every MediaItem it
+      builds is a local file URI. Without INTERNET the permission could not
+      transmit anything regardless, but a permission FILISH does not use has no
+      business appearing on its listing, and the privacy claim in the access
+      screen is only checkable if the permission list is actually minimal.
     -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -23,11 +32,6 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:name=".FilishApp"
@@ -54,19 +58,18 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".core.fs.ops.OperationService"
+        <!--
+          FILISH's own viewers. A separate activity rather than a screen in the
+          browser: a viewer needs its own window (immersive, free to rotate)
+          and the system back stack then does the right thing for nothing.
+          Rotation is handled in-configuration so turning the phone during a
+          video does not restart playback.
+        -->
+        <activity
+            android:name=".feature.viewer.ViewerActivity"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <service
-            android:name=".feature.viewer.audio.AudioService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
-        </service>
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|smallestScreenSize"
+            android:theme="@style/Theme.Filish" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

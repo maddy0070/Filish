@@ -8,6 +8,7 @@ import com.filish.core.model.Kinds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,6 +72,22 @@ class OperationEngine(
     }
 
     private val idCounter = AtomicLong(0)
+
+    /**
+     * The job running the current operation, so it can be stopped.
+     *
+     * Held rather than exposed as a flag because cancellation has to reach
+     * inside the copy loop, not merely be checked between files - stopping a
+     * 4 GB transfer must not mean waiting for that file to finish.
+     */
+    @Volatile
+    private var activeJob: Job? = null
+
+    /** Stops whatever is running. Partial destination files are cleaned up by
+     *  the operation itself as it unwinds. */
+    fun cancelActive() {
+        activeJob?.cancel()
+    }
 
     private val _active = MutableStateFlow<OperationProgress?>(null)
     val active: StateFlow<OperationProgress?> = _active.asStateFlow()
@@ -176,6 +193,7 @@ class OperationEngine(
         sourceLabel: String = "",
     ): OperationResult = withContext(Dispatchers.IO) {
         val id = idCounter.incrementAndGet()
+        activeJob = coroutineContext[Job]
         val startedAt = System.currentTimeMillis()
         val destName = File(destinationDir).name.ifEmpty { destinationDir }
 

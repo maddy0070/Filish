@@ -72,7 +72,6 @@ data class FilishSettings(
      *  Two dialogs to trash one photo is a tax, not a safeguard. */
     val skipConfirmWhenRecoverable: Boolean = true,
     val defaultConflictAsk: Boolean = true,
-    val notifyOnCompletion: Boolean = true,
 
     // Storage
     val analysisIncludesHidden: Boolean = false,
@@ -113,7 +112,6 @@ class SettingsStore(private val context: Context) {
         val confirmDelete = booleanPreferencesKey("confirm_delete")
         val skipConfirmRecoverable = booleanPreferencesKey("skip_confirm_recoverable")
         val conflictAsk = booleanPreferencesKey("conflict_ask")
-        val notifyCompletion = booleanPreferencesKey("notify_completion")
         val analysisHidden = booleanPreferencesKey("analysis_hidden")
         val reduceMotion = booleanPreferencesKey("reduce_motion")
         val highContrast = booleanPreferencesKey("high_contrast")
@@ -150,7 +148,6 @@ class SettingsStore(private val context: Context) {
         confirmDelete = this[Keys.confirmDelete] ?: true,
         skipConfirmWhenRecoverable = this[Keys.skipConfirmRecoverable] ?: true,
         defaultConflictAsk = this[Keys.conflictAsk] ?: true,
-        notifyOnCompletion = this[Keys.notifyCompletion] ?: true,
         analysisIncludesHidden = this[Keys.analysisHidden] ?: false,
         reduceMotion = this[Keys.reduceMotion] ?: false,
         highContrast = this[Keys.highContrast] ?: false,
@@ -176,7 +173,6 @@ class SettingsStore(private val context: Context) {
     suspend fun setConfirmDelete(v: Boolean) = put { it[Keys.confirmDelete] = v }
     suspend fun setSkipConfirmRecoverable(v: Boolean) = put { it[Keys.skipConfirmRecoverable] = v }
     suspend fun setConflictAsk(v: Boolean) = put { it[Keys.conflictAsk] = v }
-    suspend fun setNotifyCompletion(v: Boolean) = put { it[Keys.notifyCompletion] = v }
     suspend fun setAnalysisHidden(v: Boolean) = put { it[Keys.analysisHidden] = v }
     suspend fun setReduceMotion(v: Boolean) = put { it[Keys.reduceMotion] = v }
     suspend fun setHighContrast(v: Boolean) = put { it[Keys.highContrast] = v }
