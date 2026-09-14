@@ -36,7 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.filish.core.fs.Volume
 import com.filish.core.fs.ops.ConflictPolicy
-import com.filish.core.fs.ops.DeleteEngine
+import com.filish.core.fs.ops.DeleteController
 import com.filish.core.fs.ops.OperationKind
 import com.filish.core.intel.FindingAction
 import com.filish.core.model.FileNode
@@ -107,35 +107,18 @@ fun FilishRoot(
     var renameTarget by remember { mutableStateOf<FileNode?>(null) }
     var propertiesTarget by remember { mutableStateOf<FileNode?>(null) }
     var nameError by remember { mutableStateOf<String?>(null) }
-    var deletePlan by remember { mutableStateOf<DeleteEngine.Plan?>(null) }
     var report by remember { mutableStateOf<ReportState?>(null) }
 
-    // System consent for trashing, which MediaProvider requires and FILISH
-    // cannot bypass.
+    val deletes = graph.deleteController
+    val deleteStage by deletes.stage.collectAsStateWithLifecycle()
+
+    // System consent for trashing. FILISH holds all-files access, so this is
+    // the fallback path rather than the normal one - and it now only carries a
+    // verdict back to the controller, which owns the operation.
     val trashLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
-        val plan = deletePlan
-        deletePlan = null
-        overlay = Overlay.None
-        if (result.resultCode == android.app.Activity.RESULT_OK && plan != null) {
-            scope.launch {
-                val (uris, _) = graph.deletes.resolveTrashable(plan)
-                val confirmed = graph.deletes.verifyTrashed(uris)
-                val expiry = graph.deletes.expiryOf(uris)
-                browse.clearSelection()
-                browse.refresh()
-                report = ReportState(
-                    message = "${Format.plural(confirmed, "item", "items")} moved to trash",
-                    detail = if (expiry > 0) {
-                        "Your device will remove them permanently on " +
-                            Format.absoluteDate(expiry) + "."
-                    } else {
-                        "They can be restored from your device's trash."
-                    },
-                )
-            }
-        }
+        deletes.onConsentResult(result.resultCode == android.app.Activity.RESULT_OK)
     }
 
     val mediaPermissionLauncher = rememberLauncherForActivityResult(
@@ -158,6 +141,26 @@ fun FilishRoot(
         onPauseOrDispose { }
     }
 
+    // The controller asks; the composable launches. Keyed on the batch index
+    // so a multi-batch consent sequence fires once per batch.
+    LaunchedEffect(deleteStage) {
+        val awaiting = deleteStage as? DeleteController.Stage.AwaitingConsent ?: return@LaunchedEffect
+        runCatching {
+            trashLauncher.launch(IntentSenderRequest.Builder(awaiting.sender).build())
+        }.onFailure { deletes.onConsentResult(false) }
+    }
+
+    // A finished delete updates the browser and reports, exactly once.
+    LaunchedEffect(deleteStage) {
+        val finished = deleteStage as? DeleteController.Stage.Finished ?: return@LaunchedEffect
+        overlay = Overlay.None
+        browse.clearSelection()
+        browse.dropPaths(finished.result.removedPaths)
+        browse.refresh()
+        report = reportForDelete(finished.result)
+        deletes.acknowledge()
+    }
+
     LaunchedEffect(report) {
         if (report != null) {
             delay(5_000)
@@ -173,22 +176,12 @@ fun FilishRoot(
     /**
      * Starting a deletion, from wherever the user is.
      *
-     * Shared by the browser, investigations and the duplicate screen so that
-     * all three get the same routing, the same honest consequence text, and
-     * the same skip-the-second-dialog behaviour when the platform is already
-     * going to ask.
+     * Shared by the browser, investigations and the duplicate screen so all
+     * three get the same routing, the same honest consequence text, and the
+     * same progress reporting.
      */
     fun beginDelete(nodes: List<FileNode>) {
-        if (nodes.isEmpty()) return
-        scope.launch {
-            val plan = graph.deletes.plan(nodes)
-            deletePlan = plan
-            if (plan.isFullyRecoverable && settings.skipConfirmWhenRecoverable) {
-                launchTrash(graph, plan, trashLauncher) { overlay = Overlay.Delete }
-            } else {
-                overlay = Overlay.Delete
-            }
-        }
+        deletes.begin(nodes, settings.skipConfirmWhenRecoverable)
     }
 
     fun back() {
@@ -488,39 +481,25 @@ fun FilishRoot(
         )
 
         DeleteSheet(
-            visible = overlay == Overlay.Delete,
-            plan = deletePlan,
-            onConfirm = {
-                val plan = deletePlan
-                if (plan == null) { overlay = Overlay.None; return@DeleteSheet }
-                scope.launch {
-                    if (plan.trashableUris.isNotEmpty() || plan.unindexedPaths.isNotEmpty()) {
-                        launchTrash(graph, plan, trashLauncher) { }
-                    } else {
-                        overlay = Overlay.None
-                        val outcome = graph.deletes.deletePermanently(plan.permanentPaths)
-                        browse.clearSelection()
-                        browse.refresh()
-                        deletePlan = null
-                        report = if (outcome.allSucceeded) {
-                            ReportState(
-                                "${Format.plural(outcome.deleted, "item", "items")} deleted",
-                                "${Format.size(plan.totalBytes)} freed.",
-                            )
-                        } else {
-                            ReportState(
-                                "${outcome.deleted} deleted, ${outcome.failed.size} could not be",
-                                outcome.failed.firstOrNull()?.let {
-                                    "${File(it.path).name}: ${it.reason}"
-                                },
-                                Severity.Problem,
-                            )
-                        }
-                    }
-                }
-            },
-            onDismiss = { overlay = Overlay.None; deletePlan = null },
+            visible = deleteStage is DeleteController.Stage.Confirming,
+            plan = (deleteStage as? DeleteController.Stage.Confirming)?.plan,
+            onConfirm = { deletes.confirm() },
+            onDismiss = { deletes.dismiss() },
         )
+
+        // Deletion is no longer instantaneous-or-invisible. A large selection
+        // reports what it is doing, which is the difference between "working"
+        // and "broken".
+        (deleteStage as? DeleteController.Stage.Working)?.let { working ->
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(Space.near)
+                    .padding(bottom = if (operation != null) 96.dp else 0.dp),
+            ) {
+                com.filish.feature.operations.DeleteProgress(working)
+            }
+        }
 
         ConflictSheet(
             pending = conflict,
@@ -570,6 +549,60 @@ private data class ReportState(
     val onAction: (() -> Unit)? = null,
 )
 
+/**
+ * What the user is told after a delete.
+ *
+ * Every branch says something. The case that matters most is the last one:
+ * an operation that achieved nothing now says so, with the platform's reason,
+ * instead of leaving the interface unchanged and the user guessing.
+ */
+private fun reportForDelete(r: DeleteController.Result): ReportState = when {
+    r.blockedReason != null -> ReportState(
+        "Nothing was deleted",
+        r.blockedReason,
+        Severity.Problem,
+    )
+
+    r.cancelled && r.total == 0 -> ReportState(
+        "Delete cancelled",
+        "Nothing was moved or removed.",
+        Severity.Caution,
+    )
+
+    r.cancelled -> ReportState(
+        "Delete stopped early",
+        "${Format.plural(r.total, "item", "items")} had already gone to the trash.",
+        Severity.Caution,
+    )
+
+    r.didNothing && r.failed.isNotEmpty() -> ReportState(
+        "Nothing could be deleted",
+        r.failed.first().reason,
+        Severity.Problem,
+    )
+
+    r.failed.isEmpty() && r.trashed > 0 -> ReportState(
+        "${Format.plural(r.trashed, "item", "items")} moved to trash",
+        if (r.expiresAtMillis > 0) {
+            "${Format.size(r.bytesFreed)} freed. Your device removes them permanently on " +
+                Format.absoluteDate(r.expiresAtMillis) + "."
+        } else {
+            "${Format.size(r.bytesFreed)} freed. They can be restored from your device's trash."
+        },
+    )
+
+    r.failed.isEmpty() -> ReportState(
+        "${Format.plural(r.deleted, "item", "items")} deleted",
+        "${Format.size(r.bytesFreed)} freed.",
+    )
+
+    else -> ReportState(
+        "${r.total} of ${r.total + r.failed.size} deleted",
+        r.failed.first().reason,
+        Severity.Problem,
+    )
+}
+
 private fun reportFor(result: com.filish.core.fs.ops.OperationResult): ReportState = when {
     result.cancelled -> ReportState(
         "${result.kind.verb} stopped",
@@ -590,22 +623,6 @@ private fun reportFor(result: com.filish.core.fs.ops.OperationResult): ReportSta
         result.failed.firstOrNull()?.let { "${File(it.path).name}: ${it.reason}" },
         Severity.Problem,
     )
-}
-
-private suspend fun launchTrash(
-    graph: com.filish.FilishApp.Graph,
-    plan: DeleteEngine.Plan,
-    launcher: androidx.activity.result.ActivityResultLauncher<IntentSenderRequest>,
-    onUnavailable: () -> Unit,
-) {
-    val (uris, _) = graph.deletes.resolveTrashable(plan)
-    val sender = graph.deletes.trashRequest(uris)
-    if (sender == null) {
-        onUnavailable()
-        return
-    }
-    runCatching { launcher.launch(IntentSenderRequest.Builder(sender).build()) }
-        .onFailure { onUnavailable() }
 }
 
 /**

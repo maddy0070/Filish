@@ -155,6 +155,86 @@ class MediaStoreIndex(private val context: Context) {
         }.getOrDefault(false)
     }
 
+    /**
+     * How many of these URIs are actually trashed, in one query.
+     *
+     * The previous implementation asked MediaProvider once per URI. For a
+     * few hundred files that is a few hundred round trips, run after the user
+     * has already waited through the delete itself.
+     */
+    suspend fun trashedCount(uris: List<Uri>): Int = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || uris.isEmpty()) {
+            return@withContext 0
+        }
+        val ids = uris.mapNotNull { ContentUris.parseId(it).takeIf { id -> id > 0 } }
+        if (ids.isEmpty()) return@withContext 0
+
+        var count = 0
+        ids.chunked(400).forEach { chunk ->
+            val placeholders = chunk.joinToString(",") { "?" }
+            runCatching {
+                val args = android.os.Bundle().apply {
+                    putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+                    putString(
+                        android.content.ContentResolver.QUERY_ARG_SQL_SELECTION,
+                        "${MediaStore.Files.FileColumns._ID} IN ($placeholders) AND " +
+                            "${MediaStore.Files.FileColumns.IS_TRASHED}=1",
+                    )
+                    putStringArray(
+                        android.content.ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                        chunk.map { it.toString() }.toTypedArray(),
+                    )
+                }
+                context.contentResolver.query(
+                    filesUri,
+                    arrayOf(MediaStore.Files.FileColumns._ID),
+                    args,
+                    null,
+                )?.use { count += it.count }
+            }
+        }
+        count
+    }
+
+    /**
+     * Asks MediaProvider to index many paths at once.
+     *
+     * [index] scans a single path and waits up to four seconds for the
+     * callback. Calling it in a loop for a large selection means the wait is
+     * four seconds times the number of files - minutes of apparent hang for a
+     * folder of RAW images, which MediaProvider is least likely to have
+     * indexed already.
+     *
+     * MediaScannerConnection.scanFile accepts the whole array, so one
+     * connection and one overall deadline replaces N of each.
+     */
+    suspend fun indexAll(paths: List<String>): Map<String, Uri> {
+        if (paths.isEmpty()) return emptyMap()
+        val resolved = HashMap<String, Uri>(paths.size)
+        // Scale the deadline with the work, but bound it: a scan that has not
+        // finished by now is one MediaProvider has declined, and the caller
+        // has a correct answer for those already (they stay permanent).
+        val budget = (3_000L + paths.size * 40L).coerceAtMost(20_000L)
+        withTimeoutOrNull(budget) {
+            suspendCancellableCoroutine<Unit> { cont ->
+                val remaining = java.util.concurrent.atomic.AtomicInteger(paths.size)
+                runCatching {
+                    MediaScannerConnection.scanFile(
+                        context, paths.toTypedArray(), null,
+                    ) { path, uri ->
+                        if (uri != null && path != null) {
+                            synchronized(resolved) { resolved[path] = uri }
+                        }
+                        if (remaining.decrementAndGet() <= 0 && cont.isActive) {
+                            cont.resume(Unit)
+                        }
+                    }
+                }.onFailure { if (cont.isActive) cont.resume(Unit) }
+            }
+        }
+        return synchronized(resolved) { HashMap(resolved) }
+    }
+
     /** Items currently in the system trash that FILISH is permitted to see. */
     suspend fun trashedItems(): List<TrashedItem> = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext emptyList()

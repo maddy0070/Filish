@@ -83,6 +83,17 @@ class FilishApp : Application() {
         val analyzer = StorageAnalyzer()
         val deletes = DeleteEngine(context, mediaIndex)
         val operations = OperationEngine(appScope, sizes, mediaIndex)
+
+        /**
+         * Deletion runs in the application scope, not in a composable.
+         *
+         * A multi-gigabyte delete can outlive an activity recreation, and the
+         * consent dialogs it may need put another activity in front of ours.
+         * State held in composition does not survive either, which is how a
+         * delete could previously complete with the interface never hearing
+         * about it.
+         */
+        val deleteController = com.filish.core.fs.ops.DeleteController(appScope, deletes, sizes)
     }
 }
 

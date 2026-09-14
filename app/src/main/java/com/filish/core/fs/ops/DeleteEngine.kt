@@ -2,6 +2,7 @@ package com.filish.core.fs.ops
 
 import android.app.Activity
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.IntentSender
 import android.net.Uri
@@ -10,8 +11,10 @@ import android.provider.MediaStore
 import com.filish.core.fs.MediaStoreIndex
 import com.filish.core.model.FileNode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.coroutineContext
 
 /**
  * Deletion.
@@ -134,6 +137,17 @@ class DeleteEngine(
     private val trashSupported: Boolean
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
 
+    private companion object {
+        /**
+         * URIs per consent dialog.
+         *
+         * Chosen well below where a parcelled PendingIntent starts risking the
+         * Binder transaction limit. Several small dialogs that work beat one
+         * large dialog that throws.
+         */
+        const val CONSENT_BATCH = 100
+    }
+
     /**
      * Works out what will happen, before anything happens.
      *
@@ -213,15 +227,15 @@ class DeleteEngine(
                 // Re-resolve rather than trusting the plan's snapshot: time has
                 // passed and MediaProvider may have indexed things since.
                 val fresh = index.urisFor(plan.unindexedPaths)
-                for (path in plan.unindexedPaths) {
-                    val existing = fresh[path]
-                    if (existing != null) {
-                        if (existing !in uris) uris.add(existing)
-                        continue
-                    }
-                    val scanned = index.index(path)
-                    if (scanned != null && scanned.scheme == "content") {
-                        if (scanned !in uris) uris.add(scanned)
+                val stillMissing = plan.unindexedPaths.filter { it !in fresh }
+                fresh.values.forEach { if (it !in uris) uris.add(it) }
+
+                // One batched scan, not one four-second scan per file.
+                val scanned = index.indexAll(stillMissing)
+                for (path in stillMissing) {
+                    val uri = scanned[path]
+                    if (uri != null && uri.scheme == "content") {
+                        if (uri !in uris) uris.add(uri)
                     } else {
                         stillPermanent.add(path)
                     }
@@ -240,19 +254,113 @@ class DeleteEngine(
      * of it for the recoverable case: two dialogs to delete one photo is a
      * tax, not a safeguard.
      */
-    fun trashRequest(uris: List<Uri>): IntentSender? {
-        if (!trashSupported || uris.isEmpty()) return null
-        return runCatching {
-            MediaStore.createTrashRequest(context.contentResolver, uris, true).intentSender
-        }.getOrNull()
+    fun consentRequest(uris: List<Uri>, trash: Boolean = true): ConsentRequest {
+        if (!trashSupported) {
+            return ConsentRequest.Impossible("This version of Android has no system trash.")
+        }
+        if (uris.isEmpty()) return ConsentRequest.Impossible("Nothing to move.")
+        return try {
+            ConsentRequest.Ready(
+                MediaStore.createTrashRequest(context.contentResolver, uris, trash).intentSender,
+            )
+        } catch (t: Throwable) {
+            // Never swallowed. The previous implementation returned null here
+            // and the caller had no way to tell "not supported" from "it threw",
+            // which is precisely how a delete could appear to do nothing at all.
+            ConsentRequest.Impossible(describeTrashFailure(t))
+        }
     }
 
-    /** Restores items from the system trash. Same consent model as trashing. */
-    fun untrashRequest(uris: List<Uri>): IntentSender? {
-        if (!trashSupported || uris.isEmpty()) return null
-        return runCatching {
-            MediaStore.createTrashRequest(context.contentResolver, uris, false).intentSender
-        }.getOrNull()
+    /** The result of asking the platform for a consent dialog. */
+    sealed interface ConsentRequest {
+        data class Ready(val sender: IntentSender) : ConsentRequest
+        data class Impossible(val reason: String) : ConsentRequest
+    }
+
+    /**
+     * Splits a selection into batches small enough for one consent dialog.
+     *
+     * Every URI in a trash request is parcelled into a PendingIntent and
+     * crosses a Binder transaction, which is capped at roughly a megabyte for
+     * the whole process. A large selection therefore does not fail gracefully
+     * - it throws, and before this was batched a big delete could throw before
+     * anything happened.
+     */
+    fun batchesOf(uris: List<Uri>): List<List<Uri>> =
+        if (uris.isEmpty()) emptyList() else uris.chunked(CONSENT_BATCH)
+
+    /**
+     * Moves items to the system trash, without a dialog where that is allowed.
+     *
+     * ---------------------------------------------------------------------
+     * Why this is not simply createTrashRequest
+     *
+     * createTrashRequest exists so that an app WITHOUT broad storage access
+     * can ask the user to approve a change to files it does not own. FILISH
+     * holds MANAGE_EXTERNAL_STORAGE, and an app holding it already has write
+     * access to those MediaStore rows - so it can set IS_TRASHED directly,
+     * and the consent dialog is at best redundant.
+     *
+     * Routing everything through the dialog regardless was the original bug.
+     * It also made every large delete fragile, because the dialog path is the
+     * one with the Binder size limit.
+     *
+     * So: write directly when we are permitted to, and fall back to the
+     * consent flow only when the platform actually refuses. Anything that
+     * fails is reported per-path with a reason - never silently dropped.
+     * ---------------------------------------------------------------------
+     */
+    suspend fun trashDirectly(uris: List<Uri>): DirectTrashResult = withContext(Dispatchers.IO) {
+        if (!trashSupported) {
+            return@withContext DirectTrashResult(
+                0, emptyList(), uris, "This version of Android has no system trash.",
+            )
+        }
+        if (uris.isEmpty()) return@withContext DirectTrashResult(0, emptyList(), emptyList(), null)
+
+        val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_TRASHED, 1) }
+        var trashed = 0
+        val failures = ArrayList<FailedDeletion>()
+        val needConsent = ArrayList<Uri>()
+
+        for (uri in uris) {
+            coroutineContext.ensureActive()
+            try {
+                val rows = context.contentResolver.update(uri, values, null, null)
+                if (rows > 0) trashed++ else needConsent.add(uri)
+            } catch (security: SecurityException) {
+                // The platform is telling us to ask the user. That is not a
+                // failure, it is the other branch.
+                needConsent.add(uri)
+            } catch (t: Throwable) {
+                failures.add(FailedDeletion(uri.toString(), describeTrashFailure(t)))
+            }
+        }
+
+        DirectTrashResult(trashed, failures, needConsent, null)
+    }
+
+    data class DirectTrashResult(
+        val trashed: Int,
+        val failed: List<FailedDeletion>,
+        /** Items the platform would not let us trash without asking the user. */
+        val needsConsent: List<Uri>,
+        /** Set when nothing could be attempted at all. */
+        val blockedReason: String?,
+    )
+
+    /** Turns a trash failure into something a person can act on. */
+    private fun describeTrashFailure(t: Throwable): String = when {
+        t is android.os.TransactionTooLargeException ||
+            t.cause is android.os.TransactionTooLargeException ->
+            "Too many files in one request for Android to handle at once."
+        t is SecurityException -> "Android denied permission to move these files."
+        t is IllegalArgumentException ->
+            "Android did not recognise one of these files in its media library."
+        t is UnsupportedOperationException ->
+            "This storage volume does not support the system trash."
+        else -> t.message?.takeIf { it.isNotBlank() }
+            ?: "Android refused the request (${t.javaClass.simpleName})."
     }
 
     /** Permanently removes items that are in MediaStore. */
@@ -360,12 +468,14 @@ class DeleteEngine(
         return 0L
     }
 
-    /** Verifies that a launched trash request actually took effect. */
-    suspend fun verifyTrashed(uris: List<Uri>): Int {
-        var n = 0
-        for (uri in uris) if (index.isTrashed(uri)) n++
-        return n
-    }
+    /**
+     * Confirms how many items really are trashed.
+     *
+     * One query for the whole set rather than one per URI - verifying a
+     * few hundred files was previously a few hundred round trips to
+     * MediaProvider, on the main flow, after the user had already waited.
+     */
+    suspend fun verifyTrashed(uris: List<Uri>): Int = index.trashedCount(uris)
 }
 
 /** Result of the system consent dialog. */

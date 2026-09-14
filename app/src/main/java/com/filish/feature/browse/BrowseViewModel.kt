@@ -138,6 +138,37 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Removes rows for paths that are already gone.
+     *
+     * Called the moment a delete completes, before the directory is re-read.
+     * Waiting for the re-read is what made a successful delete look like a
+     * failed one: the operation had worked, but the list still showed the
+     * files for as long as the filesystem took to answer again.
+     *
+     * The re-read still happens straight after and remains the source of
+     * truth; this only stops the interface from lying in the meantime.
+     */
+    fun dropPaths(paths: Collection<String>) {
+        if (paths.isEmpty()) return
+        val gone = paths.toSet()
+        _state.update { s ->
+            val listing = s.listing
+            val trimmed = if (listing is Listing.Content) {
+                Listing.Content(listing.entries.filter { it.path !in gone }, listing.unreadable)
+            } else {
+                listing
+            }
+            s.copy(
+                listing = trimmed,
+                rows = s.rows.filterNot { it is BrowseRow.Item && it.node.path in gone },
+                rawCount = (s.rawCount - gone.size).coerceAtLeast(0),
+                selection = Selection(),
+                folderFacts = s.folderFacts - gone,
+            )
+        }
+    }
+
     fun refresh() {
         val path = _state.value.path
         graph.sizes.invalidate(path)
