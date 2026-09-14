@@ -112,8 +112,11 @@ android {
         applicationId = "com.filish"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // V2: the product pass. Bumped together - a release tagged 1.1.0 that
+        // reports itself as 1.0 is a quiet lie, and an unchanged versionCode
+        // means Android does not consider it an upgrade at all.
+        versionCode = 2
+        versionName = "1.1"
         vectorDrawables { useSupportLibrary = true }
     }
 
