@@ -234,6 +234,7 @@ fun BrowseScreen(
                                             }
                                         },
                                         onLongClick = { onSelect(row.node) },
+                                        departing = state.departing[row.node.path],
                                     )
                                 }
                             }

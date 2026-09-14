@@ -65,12 +65,30 @@ data class BrowseState(
      * now a named way in.
      */
     val selectionMode: Boolean = false,
+    /**
+     * Rows that are on their way out.
+     *
+     * A deleted row is not removed the instant the operation succeeds - it is
+     * marked, animated away, and only then dropped. Without this the list can
+     * only ever cut, and a cut cannot say where something went.
+     */
+    val departing: Map<String, Departure> = emptyMap(),
 ) {
     val items: List<FileNode>
         get() = rows.mapNotNull { (it as? BrowseRow.Item)?.node }
 
     val isEmpty: Boolean get() = rows.none { it is BrowseRow.Item }
 }
+
+/**
+ * How something left.
+ *
+ * Recoverable and permanent deletions must not feel the same. One is a move
+ * to somewhere the file can be retrieved from; the other is destruction. An
+ * interface that animates them identically is quietly telling the user they
+ * are the same act.
+ */
+enum class Departure { ToTrash, Destroyed }
 
 /** A rendered row: either a group heading or an entry. */
 sealed interface BrowseRow {
@@ -158,6 +176,25 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
      * The re-read still happens straight after and remains the source of
      * truth; this only stops the interface from lying in the meantime.
      */
+    /**
+     * Marks rows as leaving, then removes them once the motion has played.
+     *
+     * The delay is the animation's length, not a guess: the rows have to
+     * survive long enough to be seen departing, and no longer.
+     */
+    fun departPaths(paths: Collection<String>, how: Departure) {
+        if (paths.isEmpty()) return
+        val leaving = paths.toSet()
+        _state.update { s ->
+            s.copy(departing = s.departing + leaving.associateWith { how })
+        }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(DEPARTURE_MILLIS)
+            dropPaths(leaving)
+            _state.update { s -> s.copy(departing = s.departing - leaving) }
+        }
+    }
+
     fun dropPaths(paths: Collection<String>) {
         if (paths.isEmpty()) return
         val gone = paths.toSet()
@@ -190,7 +227,13 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
     private fun reorder() {
         val listing = _state.value.listing as? Listing.Content ?: return
         val s = _state.value
-        val entries = listing.entries
+        // A re-read that lands mid-animation must not put a departing row
+        // back: the file may still be on disk for a moment after a trash.
+        val entries = if (s.departing.isEmpty()) {
+            listing.entries
+        } else {
+            listing.entries.filterNot { it.path in s.departing }
+        }
 
         val visible = entries.filter { s.filter.matches(it) }
         val hidden = entries.size - visible.size
@@ -529,6 +572,18 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
             "Names cannot end with a space or a dot."
         File(parentPath, name).exists() -> "Something here is already called that."
         else -> null
+    }
+
+    companion object {
+        /**
+         * How long a departing row is kept before it is really removed.
+         *
+         * Derived from the animation rather than restated, because a
+         * duplicated constant drifts: this was written as 460 against an
+         * animation of 440 and the row was being cut 20ms before it finished
+         * leaving. Deriving it makes that impossible.
+         */
+        const val DEPARTURE_MILLIS = com.filish.design.Motion.DELIBERATE.toLong()
     }
 
     fun volumesNow(): List<Volume> = volumes

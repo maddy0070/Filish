@@ -2,6 +2,7 @@ package com.filish.feature.browse
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,6 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -39,6 +43,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.filish.core.media.ThumbnailLoader
 import com.filish.core.model.FileKind
 import com.filish.core.model.FileNode
@@ -91,6 +96,8 @@ fun FileRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Non-null while this row is animating away. */
+    departing: Departure? = null,
 ) {
     val palette = Filish.palette
     val type = Filish.type
@@ -115,14 +122,78 @@ fun FileRow(
         if (reduce) Motion.reduced() else Motion.quick(), label = "rowMarker",
     )
 
+    /*
+     * DEPARTURE.
+     *
+     * Two motions, because two different things happen.
+     *
+     * TO TRASH: the row is *withdrawn*. It slides toward the trailing edge -
+     * the direction the delete action lives - while its height closes behind
+     * it, and its ground briefly takes the signal wash. It reads as being
+     * claimed and taken somewhere, not destroyed, which is exactly what a
+     * recoverable delete is.
+     *
+     * DESTROYED: no lateral movement at all, because nothing is going
+     * anywhere. The ink drains out and the row closes straight down.
+     *
+     * Both hold for a beat before leaving - anticipation, so the eye has time
+     * to register which row is going - then release quickly. Under reduced
+     * motion both collapse to a fast fade, which loses the metaphor but keeps
+     * the fact.
+     */
+    val leaving = departing != null
+    val departure = animateFloatAsState(
+        targetValue = if (leaving) 1f else 0f,
+        animationSpec = if (reduce) {
+            tween(Motion.REDUCED)
+        } else {
+            tween(Motion.DELIBERATE, easing = Motion.enter)
+        },
+        label = "departure",
+    ).value
+
     val displayName = if (showExtensions || node.isDirectory) node.name else node.stem
     val vertical = (Space.group - 2.dp) * density
 
     Row(
         modifier
             .fillMaxWidth()
-            .defaultMinSize(minHeight = Reach.touch)
-            .background(ground)
+            .then(
+                if (leaving) {
+                    Modifier
+                        .graphicsLayer {
+                            // Hold, then go: nothing happens for the first
+                            // fifth of the motion so the row can be seen.
+                            val t = ((departure - 0.2f) / 0.8f).coerceIn(0f, 1f)
+                            alpha = 1f - t
+                            if (departing == Departure.ToTrash) {
+                                translationX = size.width * 0.32f * t * t
+                            }
+                            scaleY = 1f - t * 0.25f
+                            transformOrigin = TransformOrigin(0.5f, 0f)
+                        }
+                        // The row closes by reporting a smaller height as it
+                        // goes, so the list below it rises to fill the gap.
+                        // Measuring the row up front would mean knowing its
+                        // height before it has one.
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            val t = ((departure - 0.35f) / 0.65f).coerceIn(0f, 1f)
+                            val h = (placeable.height * (1f - t)).roundToInt()
+                            layout(placeable.width, h) { placeable.place(0, 0) }
+                        }
+                } else {
+                    Modifier
+                },
+            )
+            .defaultMinSize(minHeight = if (leaving) 0.dp else Reach.touch)
+            .background(
+                if (departing == Departure.ToTrash) {
+                    palette.signalWash.copy(alpha = (1f - departure).coerceIn(0f, 1f))
+                } else {
+                    ground
+                },
+            )
             .pressable(
                 onClick = onClick,
                 onLongClick = onLongClick,

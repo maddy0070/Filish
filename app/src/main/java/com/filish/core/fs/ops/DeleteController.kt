@@ -85,9 +85,15 @@ class DeleteController(
         /** Set when the whole operation could not proceed. */
         val blockedReason: String?,
         val cancelled: Boolean = false,
-        /** Paths that are gone from the filesystem, so the list can drop them
-         *  immediately rather than waiting for a re-read. */
-        val removedPaths: List<String> = emptyList(),
+        /**
+         * Paths that are gone, split by how they went.
+         *
+         * The browser animates the two differently, because a move to a
+         * recoverable place and an irreversible destruction are not the same
+         * act and should not look like it.
+         */
+        val trashedPaths: List<String> = emptyList(),
+        val destroyedPaths: List<String> = emptyList(),
     ) {
         val total: Int get() = trashed + deleted
         val isClean: Boolean get() = failed.isEmpty() && blockedReason == null && !cancelled
@@ -105,7 +111,7 @@ class DeleteController(
     private var batchCursor = 0
     private var accTrashed = 0
     private var accFailed = mutableListOf<DeleteEngine.FailedDeletion>()
-    private var accRemoved = mutableListOf<String>()
+    private var accDestroyed = mutableListOf<String>()
     private var activePlan: DeleteEngine.Plan? = null
 
     /** Resolves what would happen, then asks. */
@@ -149,14 +155,14 @@ class DeleteController(
         batchCursor = 0
         accTrashed = 0
         accFailed = mutableListOf()
-        accRemoved = mutableListOf()
+        accDestroyed = mutableListOf()
         activePlan = null
     }
 
     private suspend fun execute(plan: DeleteEngine.Plan) {
         accTrashed = 0
         accFailed = mutableListOf()
-        accRemoved = mutableListOf()
+        accDestroyed = mutableListOf()
 
         val totalItems = plan.nodes.size
 
@@ -189,7 +195,7 @@ class DeleteController(
             val outcome = engine.deletePermanently(permanentPaths)
             accFailed.addAll(outcome.failed)
             val failedPaths = outcome.failed.map { it.path }.toSet()
-            accRemoved.addAll(permanentPaths.filter { it !in failedPaths })
+            accDestroyed.addAll(permanentPaths.filter { it !in failedPaths })
             accDeleted = outcome.deleted
         }
 
@@ -280,8 +286,10 @@ class DeleteController(
         }
 
         // Trashed files leave their directory, so the browser must drop them.
-        if (verified > 0) {
-            accRemoved.addAll(plan.nodes.filter { !it.isDirectory }.map { it.path })
+        val trashedPaths = if (verified > 0) {
+            plan.nodes.filter { !it.isDirectory }.map { it.path }
+        } else {
+            emptyList()
         }
 
         plan.nodes.forEach { sizes.invalidate(it.path) }
@@ -295,7 +303,8 @@ class DeleteController(
                 expiresAtMillis = expiry,
                 blockedReason = blocked,
                 cancelled = cancelled,
-                removedPaths = accRemoved.distinct(),
+                trashedPaths = trashedPaths.distinct(),
+                destroyedPaths = accDestroyed.distinct(),
             ),
         )
         accDeleted = 0

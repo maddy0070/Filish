@@ -48,6 +48,7 @@ import com.filish.design.Motion
 import com.filish.design.Space
 import com.filish.feature.browse.BrowseScreen
 import com.filish.feature.browse.BrowseViewModel
+import com.filish.feature.browse.Departure
 import com.filish.feature.browse.ArrangeSheet
 import com.filish.feature.browse.CreateSheet
 import com.filish.feature.browse.NameSheet
@@ -162,7 +163,10 @@ fun FilishRoot(
         val finished = deleteStage as? DeleteController.Stage.Finished ?: return@LaunchedEffect
         overlay = Overlay.None
         browse.clearSelection()
-        browse.dropPaths(finished.result.removedPaths)
+        // Departing, not dropping: the rows animate out first, in the manner
+        // that matches what actually happened to them.
+        browse.departPaths(finished.result.trashedPaths, Departure.ToTrash)
+        browse.departPaths(finished.result.destroyedPaths, Departure.Destroyed)
         browse.refresh()
         report = reportForDelete(finished.result)
         deletes.acknowledge()

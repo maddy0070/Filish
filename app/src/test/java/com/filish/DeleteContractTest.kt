@@ -141,8 +141,11 @@ class DeleteContractTest {
         val result = DeleteController.Result(
             trashed = 2, deleted = 0, failed = emptyList(), bytesFreed = 10,
             expiresAtMillis = 0, blockedReason = null,
-            removedPaths = listOf("/storage/emulated/0/DCIM/a.arw", "/storage/emulated/0/DCIM/b.arw"),
+            trashedPaths = listOf(
+                "/storage/emulated/0/DCIM/a.arw",
+                "/storage/emulated/0/DCIM/b.arw",
+            ),
         )
-        assertEquals(2, result.removedPaths.size)
+        assertEquals(2, result.trashedPaths.size)
     }
 }
