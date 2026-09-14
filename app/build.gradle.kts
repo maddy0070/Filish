@@ -70,6 +70,40 @@ val fetchClashDisplay = tasks.register("fetchClashDisplay") {
     }
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * Release signing.
+ *
+ * An unsigned APK cannot be installed on any device - Android rejects it
+ * outright - so a release build that is published for download has to be
+ * signed or the download is simply broken.
+ *
+ * Two paths:
+ *
+ *   A REAL RELEASE KEY, when the four FILISH_* environment variables are
+ *   present. In CI they come from repository secrets; nothing is committed.
+ *   This is what a published, upgradable build needs.
+ *
+ *   THE DEBUG KEY otherwise, so a build from a fresh clone still produces
+ *   something installable. The caveat is real and is stated in the release
+ *   notes: the debug keystore is generated per machine, so two builds signed
+ *   this way have different signatures and Android will refuse to upgrade one
+ *   over the other. Uninstall first, or configure the secrets.
+ *
+ * Never committed: no keystore, no password, no alias.
+ * ---------------------------------------------------------------------------
+ */
+val releaseKeystorePath: String? = System.getenv("FILISH_KEYSTORE_PATH")
+val releaseKeystorePassword: String? = System.getenv("FILISH_KEYSTORE_PASSWORD")
+val releaseKeyAlias: String? = System.getenv("FILISH_KEY_ALIAS")
+val releaseKeyPassword: String? = System.getenv("FILISH_KEY_PASSWORD")
+
+val hasReleaseKey: Boolean = !releaseKeystorePath.isNullOrBlank() &&
+    !releaseKeystorePassword.isNullOrBlank() &&
+    !releaseKeyAlias.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank() &&
+    File(releaseKeystorePath).exists()
+
 android {
     namespace = "com.filish"
     compileSdk = 35
@@ -83,11 +117,32 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                // Installable, but see the note above: the signature is not
+                // stable across machines or CI runs.
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false
