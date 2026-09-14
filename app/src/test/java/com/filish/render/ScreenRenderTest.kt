@@ -36,8 +36,8 @@ class ScreenRenderTest : ScreenshotTest() {
                 showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )
@@ -54,8 +54,26 @@ class ScreenRenderTest : ScreenshotTest() {
                 showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
+                onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
+                onCancelPaste = {},
+            )
+        }
+    }
+
+    @Test
+    fun selectionModeEmpty() {
+        shoot("14-choosing") {
+            BrowseScreen(
+                state = Fixtures.browseState().copy(selectionMode = true),
+                clipboard = Clipboard(),
+                showThumbnails = true,
+                showExtensions = true,
+                volumes = listOf(Fixtures.volume),
+                onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )
@@ -72,8 +90,8 @@ class ScreenRenderTest : ScreenshotTest() {
                 showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )

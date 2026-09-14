@@ -75,6 +75,8 @@ import com.filish.design.component.SettlingFigure
 @Composable
 fun SelectionLedger(
     selection: Selection,
+    /** True while the user is choosing, even before anything is chosen. */
+    choosing: Boolean = false,
     refinements: List<SelectionRefinement>,
     onRefine: (SelectionRefinement) -> Unit,
     onCopy: () -> Unit,
@@ -90,7 +92,7 @@ fun SelectionLedger(
     val reduce = Filish.a11y.reduceMotion
 
     AnimatedVisibility(
-        visible = selection.isActive,
+        visible = selection.isActive || choosing,
         enter = if (reduce) fadeIn(Motion.reduced()) else slideInVertically(Motion.base()) { it } + fadeIn(Motion.quick()),
         exit = if (reduce) fadeOut(Motion.reduced()) else slideOutVertically(Motion.leaving()) { it } + fadeOut(Motion.leaving()),
         modifier = modifier,
@@ -114,6 +116,21 @@ fun SelectionLedger(
                                 contentDescription = announcement(selection)
                             },
                     ) {
+                        if (!selection.isActive) {
+                            // Entering selection mode with nothing chosen yet.
+                            // The empty state explains the mode rather than
+                            // showing a meaningless "0 B".
+                            BasicTextCompat(
+                                "Choose files",
+                                type.heading.copy(color = palette.ink0),
+                            )
+                            Gap(Space.bond + 1.dp)
+                            BasicTextCompat(
+                                "Tap anything in the list. Filish adds up their real size " +
+                                    "as you go, folders included.",
+                                type.meta.copy(color = palette.ink2),
+                            )
+                        } else {
                         SettlingFigure(
                             bytes = selection.displayBytes,
                             settled = selection.isSettled,
@@ -136,9 +153,10 @@ fun SelectionLedger(
                                 )
                             }
                         }
+                        }
                     }
                     GlyphButton(
-                        Glyphs.Close, "Clear selection", onDismiss,
+                        Glyphs.Close, "Stop choosing", onDismiss,
                         glyphSize = 20.dp, touchSize = 42.dp, tint = palette.ink2,
                     )
                 }
@@ -158,20 +176,30 @@ fun SelectionLedger(
                 }
 
                 Gap(Space.group + 2.dp)
+                val enabled = selection.isActive
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.near)) {
                     FilishAction(
                         "Copy", onCopy, Modifier.weight(1f),
                         weight = ActionWeight.Secondary, glyph = Glyphs.Copy,
+                        enabled = enabled,
                     )
                     FilishAction(
                         "Move", onMove, Modifier.weight(1f),
                         weight = ActionWeight.Secondary, glyph = Glyphs.Move,
+                        enabled = enabled,
                     )
-                    GlyphButton(Glyphs.Share, "Share selection", onShare, tint = palette.ink1)
                     GlyphButton(
-                        Glyphs.Trash, "Delete selection", onDelete, tint = palette.danger,
+                        Glyphs.Share, "Share selection", onShare,
+                        tint = palette.ink1, enabled = enabled,
                     )
-                    GlyphButton(Glyphs.More, "More actions", onMore, tint = palette.ink1)
+                    GlyphButton(
+                        Glyphs.Trash, "Delete selection", onDelete,
+                        tint = palette.danger, enabled = enabled,
+                    )
+                    GlyphButton(
+                        Glyphs.More, "More actions", onMore,
+                        tint = palette.ink1, enabled = enabled,
+                    )
                 }
             }
         }
@@ -194,6 +222,10 @@ private fun countFor(refinement: SelectionRefinement): Int? = when (refinement) 
  * nothing.
  */
 private fun announcement(selection: Selection): String = buildString {
+    if (!selection.isActive) {
+        append("Choosing files. Nothing selected yet.")
+        return@buildString
+    }
     append(selection.describe())
     append(" selected. ")
     if (selection.isSettled) {

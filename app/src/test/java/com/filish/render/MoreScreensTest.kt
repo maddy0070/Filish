@@ -112,8 +112,8 @@ class MoreScreensTest : ScreenshotTest() {
                 showThumbnails = true, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )
@@ -130,8 +130,8 @@ class MoreScreensTest : ScreenshotTest() {
                 showThumbnails = true, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )
@@ -147,8 +147,8 @@ class MoreScreensTest : ScreenshotTest() {
                 showThumbnails = true, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )
@@ -164,8 +164,8 @@ class MoreScreensTest : ScreenshotTest() {
                 showThumbnails = true, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
-                onTokenClick = {}, onStorage = {}, onSearch = {}, onSortTap = {},
-                onFilterTap = {}, onViewToggle = {}, onNewFolder = {}, onCopy = {},
+                onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
+                onSelectMode = {}, onNew = {}, onCopy = {},
                 onMove = {}, onDelete = {}, onShare = {}, onMore = {}, onPaste = {},
                 onCancelPaste = {},
             )

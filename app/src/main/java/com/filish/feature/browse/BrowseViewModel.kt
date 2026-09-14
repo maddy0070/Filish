@@ -9,6 +9,7 @@ import com.filish.core.model.FileKind
 import com.filish.core.model.FileNode
 import com.filish.core.model.FilterSpec
 import com.filish.core.model.GroupKey
+import com.filish.core.model.Kinds
 import com.filish.core.model.MeasuredSize
 import com.filish.core.model.NaturalOrder
 import com.filish.core.model.SortKey
@@ -57,6 +58,13 @@ data class BrowseState(
     val refinements: List<SelectionRefinement> = emptyList(),
     val volume: Volume? = null,
     val isRoot: Boolean = false,
+    /**
+     * Selection is a mode the user can enter deliberately, not only a
+     * consequence of a long press. The gesture still works and always did -
+     * but a gesture nobody knows about is a feature nobody has, so there is
+     * now a named way in.
+     */
+    val selectionMode: Boolean = false,
 ) {
     val items: List<FileNode>
         get() = rows.mapNotNull { (it as? BrowseRow.Item)?.node }
@@ -122,6 +130,7 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                 rows = emptyList(),
                 selection = Selection(),
                 folderFacts = emptyMap(),
+                selectionMode = false,
                 isRoot = volumes.any { v -> v.path == path },
                 volume = volumes.firstOrNull { v -> v.contains(path) },
             )
@@ -353,6 +362,18 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleSelection(node: FileNode) = applySelection(_state.value.selection.toggle(node))
 
+    fun enterSelectionMode() {
+        _state.update { it.copy(selectionMode = true) }
+    }
+
+    fun exitSelectionMode() {
+        measureJob?.cancel()
+        _state.update { it.copy(selectionMode = false, selection = Selection()) }
+    }
+
+    /** True when a tap should choose rather than open. */
+    val isChoosing: Boolean get() = _state.value.selectionMode || _state.value.selection.isActive
+
     fun beginSelection(node: FileNode) {
         if (_state.value.selection.isActive) toggleSelection(node)
         else applySelection(_state.value.selection.toggle(node))
@@ -363,7 +384,7 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearSelection() {
         measureJob?.cancel()
-        _state.update { it.copy(selection = Selection()) }
+        _state.update { it.copy(selection = Selection(), selectionMode = false) }
     }
 
     /**
@@ -434,6 +455,33 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                 onResult(null)
             } else {
                 onResult("Filish could not create a folder here.")
+            }
+        }
+    }
+
+    /**
+     * Creates an empty text file.
+     *
+     * The one file type that can honestly be made from nothing and is useful
+     * the moment it exists - FILISH can already open it in its own viewer.
+     * A default extension is appended when the user does not supply one, so
+     * the file opens as text rather than as an unrecognised blob.
+     */
+    fun createTextFile(name: String, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            val parent = _state.value.path
+            var clean = name.trim()
+            if (clean.isNotEmpty() && Kinds.extensionOf(clean).isEmpty()) clean = "$clean.txt"
+            val error = validateName(clean, parent)
+            if (error != null) { onResult(error); return@launch }
+            val made = runCatching { File(parent, clean).createNewFile() }.getOrDefault(false)
+            if (made) {
+                graph.mediaIndex.notifyChanged(File(parent, clean).absolutePath)
+                graph.sizes.invalidate(parent)
+                refresh()
+                onResult(null)
+            } else {
+                onResult("Filish could not create a file here.")
             }
         }
     }

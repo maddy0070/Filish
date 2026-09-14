@@ -152,14 +152,38 @@ fun FilishAction(
     }
     val shape = RoundedCornerShape(Corner.token)
 
+    /*
+     * Disabled backgrounds are computed, not alpha-scaled.
+     *
+     * Color.Transparent is opaque black at zero alpha, so copy(alpha = 0.45f)
+     * on it yields a near-black slab rather than something faded - which is
+     * exactly what happened to the disabled Copy and Move buttons: they became
+     * the heaviest thing on the surface. A transparent background stays
+     * transparent when disabled; a filled one fades toward the ground.
+     */
+    val shownBg = when {
+        enabled -> bg
+        bg == Color.Transparent -> Color.Transparent
+        else -> bg.copy(alpha = 0.38f)
+    }
+    val shownStroke = when {
+        enabled -> stroke
+        stroke == Color.Transparent -> Color.Transparent
+        else -> stroke.copy(alpha = 0.45f)
+    }
+
     Row(
         modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .defaultMinSize(minHeight = Reach.touch)
             .clip(shape)
-            .background(if (enabled) bg else bg.copy(alpha = 0.45f))
+            .background(shownBg)
             .then(
-                if (stroke != Color.Transparent) Modifier.border(1.dp, stroke, shape) else Modifier,
+                if (shownStroke != Color.Transparent) {
+                    Modifier.border(1.dp, shownStroke, shape)
+                } else {
+                    Modifier
+                },
             )
             .pressable(onClick = onClick, enabled = enabled, contentDescription = label, shape = shape)
             .padding(horizontal = Space.group + Space.bond, vertical = Space.near + 2.dp),

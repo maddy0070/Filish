@@ -48,9 +48,9 @@ import com.filish.design.Motion
 import com.filish.design.Space
 import com.filish.feature.browse.BrowseScreen
 import com.filish.feature.browse.BrowseViewModel
-import com.filish.feature.browse.FilterSheet
+import com.filish.feature.browse.ArrangeSheet
+import com.filish.feature.browse.CreateSheet
 import com.filish.feature.browse.NameSheet
-import com.filish.feature.browse.OrderSheet
 import com.filish.feature.browse.PLACES_TOKEN
 import com.filish.feature.operations.ConflictSheet
 import com.filish.feature.operations.DeleteSheet
@@ -68,7 +68,14 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /** Which transient surface, if any, is up. */
-private enum class Overlay { None, Order, Filter, NewFolder, Rename, Properties, Delete, More }
+private enum class Overlay {
+    None,
+    /** Layout, order, grouping and filtering - one question, one door. */
+    Arrange,
+    /** What can arrive in this folder. */
+    Create,
+    NewFolder, NewTextFile, Rename, Properties, Delete, More,
+}
 
 /**
  * The application shell.
@@ -184,6 +191,40 @@ fun FilishRoot(
         deletes.begin(nodes, settings.skipConfirmWhenRecoverable)
     }
 
+    /** Brings staged files into the current folder. */
+    fun paste() {
+        val staged = clipboard
+        if (!staged.isActive) return
+        val destination = state.path
+        browse.clearClipboard()
+        scope.launch {
+            val kind = if (staged.move) OperationKind.Move else OperationKind.Copy
+            val refusal = graph.operations.check(staged.nodes, destination, kind, volumes)
+            if (refusal != null) {
+                report = ReportState(
+                    "Cannot ${kind.verb.lowercase()} here",
+                    refusal.explanation,
+                    Severity.Problem,
+                )
+                return@launch
+            }
+            val result = graph.operations.run(
+                sources = staged.nodes,
+                destinationDir = destination,
+                kind = kind,
+                volumes = volumes,
+                defaultPolicy = if (settings.defaultConflictAsk) {
+                    ConflictPolicy.Ask
+                } else {
+                    ConflictPolicy.KeepBoth
+                },
+                sourceLabel = staged.originLabel,
+            )
+            browse.refresh()
+            report = reportFor(result)
+        }
+    }
+
     fun back() {
         if (nav.canGoBack) {
             direction = NavDirection.Back
@@ -264,52 +305,21 @@ fun FilishRoot(
                             state.volume?.let { go(Destination.Storage(it.path)) }
                         },
                         onSearch = { go(Destination.Search) },
-                        onSortTap = { overlay = Overlay.Order },
-                        onFilterTap = { overlay = Overlay.Filter },
-                        onViewToggle = {
-                            browse.setViewMode(
-                                if (state.viewMode == ViewMode.List) ViewMode.Grid else ViewMode.List,
-                            )
+                        onArrange = { overlay = Overlay.Arrange },
+                        onSelectMode = {
+                            if (state.selectionMode || state.selection.isActive) {
+                                browse.exitSelectionMode()
+                            } else {
+                                browse.enterSelectionMode()
+                            }
                         },
-                        onNewFolder = { nameError = null; overlay = Overlay.NewFolder },
+                        onNew = { overlay = Overlay.Create },
                         onCopy = { browse.stage(move = false) },
                         onMove = { browse.stage(move = true) },
                         onDelete = { beginDelete(state.selection.selectedNodes) },
                         onShare = { shareNodes(context, state.selection.selectedNodes) },
                         onMore = { overlay = Overlay.More },
-                        onPaste = {
-                            val staged = clipboard
-                            val destination = state.path
-                            browse.clearClipboard()
-                            scope.launch {
-                                val kind = if (staged.move) OperationKind.Move else OperationKind.Copy
-                                val refusal = graph.operations.check(
-                                    staged.nodes, destination, kind, volumes,
-                                )
-                                if (refusal != null) {
-                                    report = ReportState(
-                                        message = "Cannot ${kind.verb.lowercase()} here",
-                                        detail = refusal.explanation,
-                                        severity = Severity.Problem,
-                                    )
-                                    return@launch
-                                }
-                                val result = graph.operations.run(
-                                    sources = staged.nodes,
-                                    destinationDir = destination,
-                                    kind = kind,
-                                    volumes = volumes,
-                                    defaultPolicy = if (settings.defaultConflictAsk) {
-                                        ConflictPolicy.Ask
-                                    } else {
-                                        ConflictPolicy.KeepBoth
-                                    },
-                                    sourceLabel = staged.originLabel,
-                                )
-                                browse.refresh()
-                                report = reportFor(result)
-                            }
-                        },
+                        onPaste = { paste() },
                         onCancelPaste = { browse.clearClipboard() },
                     )
 
@@ -416,21 +426,44 @@ fun FilishRoot(
             }
         }
 
-        OrderSheet(
-            visible = overlay == Overlay.Order,
+        ArrangeSheet(
+            visible = overlay == Overlay.Arrange,
             sort = state.sort,
             group = state.group,
+            filter = state.filter,
+            viewMode = state.viewMode,
+            items = state.items,
             onSort = { browse.setSort(it) },
             onGroup = { browse.setGroup(it) },
+            onFilter = { browse.setFilter(it) },
+            onViewMode = { browse.setViewMode(it) },
             onDismiss = { overlay = Overlay.None },
         )
 
-        FilterSheet(
-            visible = overlay == Overlay.Filter,
-            filter = state.filter,
-            items = state.items,
-            onFilter = { browse.setFilter(it) },
+        CreateSheet(
+            visible = overlay == Overlay.Create,
+            folderName = File(state.path).name,
+            clipboard = clipboard,
+            onNewFolder = { nameError = null; overlay = Overlay.NewFolder },
+            onNewTextFile = { nameError = null; overlay = Overlay.NewTextFile },
+            onPaste = { paste() },
             onDismiss = { overlay = Overlay.None },
+        )
+
+        NameSheet(
+            visible = overlay == Overlay.NewTextFile,
+            title = "New text file",
+            initial = "",
+            actionLabel = "Create",
+            selectStemOnly = false,
+            error = nameError,
+            onSubmit = { name ->
+                browse.createTextFile(name) { error ->
+                    nameError = error
+                    if (error == null) overlay = Overlay.None
+                }
+            },
+            onDismiss = { overlay = Overlay.None; nameError = null },
         )
 
         NameSheet(

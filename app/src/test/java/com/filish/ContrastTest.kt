@@ -144,3 +144,27 @@ class ContrastTest {
         }
     }
 }
+
+/**
+ * Disabled controls must fade, not darken.
+ *
+ * Color.Transparent is opaque black at zero alpha, so scaling its alpha
+ * produces a near-black fill rather than a faded one. That turned disabled
+ * Copy and Move buttons into the heaviest elements on the surface. This is a
+ * property of the colour type, not of any particular palette, so it is worth
+ * pinning.
+ */
+class TransparentAlphaTest {
+
+    @org.junit.Test
+    fun `scaling the alpha of Color Transparent does not stay transparent`() {
+        val faded = androidx.compose.ui.graphics.Color.Transparent.copy(alpha = 0.45f)
+        org.junit.Assert.assertEquals(0.45f, faded.alpha, 0.001f)
+        // Black at 45% - visible, and dark. The trap.
+        org.junit.Assert.assertEquals(0f, faded.red, 0.001f)
+        org.junit.Assert.assertTrue(
+            "a faded transparent is not invisible; it must be special-cased",
+            faded.alpha > 0f,
+        )
+    }
+}

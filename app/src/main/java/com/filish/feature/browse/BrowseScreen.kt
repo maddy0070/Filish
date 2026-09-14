@@ -81,10 +81,9 @@ fun BrowseScreen(
     onTokenClick: (PathToken) -> Unit,
     onStorage: () -> Unit,
     onSearch: () -> Unit,
-    onSortTap: () -> Unit,
-    onFilterTap: () -> Unit,
-    onViewToggle: () -> Unit,
-    onNewFolder: () -> Unit,
+    onArrange: () -> Unit,
+    onSelectMode: () -> Unit,
+    onNew: () -> Unit,
     onCopy: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
@@ -113,13 +112,17 @@ fun BrowseScreen(
                     onStorageClick = onStorage,
                 )
                 Gap(Space.group - 2.dp)
-                ControlStrip(
-                    state = state,
-                    onSortTap = onSortTap,
-                    onFilterTap = onFilterTap,
-                    onViewToggle = onViewToggle,
-                    onSearch = onSearch,
-                    onNewFolder = onNewFolder,
+                ActionBar(
+                    itemCount = state.rows.count { it is BrowseRow.Item },
+                    arrangement = state.sort.statement,
+                    filterActive = state.filter.isActive,
+                    selectionActive = state.selectionMode || state.selection.isActive,
+                    // Labels are dropped before touch targets shrink.
+                    compact = LocalConfiguration.current.screenWidthDp < 380,
+                    onArrange = onArrange,
+                    onFind = onSearch,
+                    onSelect = onSelectMode,
+                    onNew = onNew,
                 )
                 if (state.loading) {
                     Gap(Space.near)
@@ -177,7 +180,7 @@ fun BrowseScreen(
                             glyph = Glyphs.FolderOpen,
                             action = {
                                 FilishAction(
-                                    "New folder", onNewFolder,
+                                    "Add something", onNew,
                                     weight = ActionWeight.Secondary, glyph = Glyphs.Plus,
                                 )
                             },
@@ -190,7 +193,7 @@ fun BrowseScreen(
                             glyph = Glyphs.Filter,
                             action = {
                                 FilishAction(
-                                    "Clear filter", onFilterTap, weight = ActionWeight.Secondary,
+                                    "Change filter", onArrange, weight = ActionWeight.Secondary,
                                 )
                             },
                         )
@@ -218,14 +221,17 @@ fun BrowseScreen(
                                     is BrowseRow.Item -> FileRow(
                                         node = row.node,
                                         selected = state.selection.contains(row.node.path),
-                                        selectionActive = state.selection.isActive,
+                                        selectionActive = state.selectionMode || state.selection.isActive,
                                         facts = state.folderFacts[row.node.path],
                                         showThumbnails = showThumbnails,
                                         showExtensions = showExtensions,
                                         density = density.rowScale,
                                         onClick = {
-                                            if (state.selection.isActive) onSelect(row.node)
-                                            else onOpen(row.node)
+                                            if (state.selectionMode || state.selection.isActive) {
+                                                onSelect(row.node)
+                                            } else {
+                                                onOpen(row.node)
+                                            }
                                         },
                                         onLongClick = { onSelect(row.node) },
                                     )
@@ -258,6 +264,7 @@ fun BrowseScreen(
             StagedBar(clipboard, onPaste, onCancelPaste)
             SelectionLedger(
                 selection = state.selection,
+                choosing = state.selectionMode,
                 refinements = state.refinements,
                 onRefine = onRefine,
                 onCopy = onCopy,
@@ -273,85 +280,10 @@ fun BrowseScreen(
 
 private fun bottomInset(state: BrowseState, clipboard: Clipboard) =
     when {
-        state.selection.isActive -> 230.dp
+        state.selection.isActive || state.selectionMode -> 230.dp
         clipboard.isActive -> 110.dp
         else -> Space.zone
     }
-
-/**
- * The control strip.
- *
- * States the ordering in words. An icon alone would require the user to open
- * a sheet to find out why their files are in this order, which is a question
- * the interface should never make anyone ask.
- */
-@Composable
-private fun ControlStrip(
-    state: BrowseState,
-    onSortTap: () -> Unit,
-    onFilterTap: () -> Unit,
-    onViewToggle: () -> Unit,
-    onSearch: () -> Unit,
-    onNewFolder: () -> Unit,
-) {
-    val palette = Filish.palette
-    val type = Filish.type
-    val itemCount = state.rows.count { it is BrowseRow.Item }
-
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            Modifier
-                .weight(1f)
-                .pressable(
-                    onClick = onSortTap,
-                    contentDescription = "Sorted by ${state.sort.key.label}, ${state.sort.statement}. " +
-                        "Change ordering.",
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(com.filish.design.Corner.token),
-                )
-                .padding(vertical = Space.bond),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            BasicTextCompat(
-                Format.plural(itemCount, "item", "items"),
-                type.metaStrong.copy(color = palette.ink1),
-                maxLines = 1,
-            )
-            BasicTextCompat(
-                "  ·  ${state.sort.statement}",
-                type.meta.copy(color = palette.ink2),
-                maxLines = 1,
-            )
-            Gap(Space.bond)
-            Glyph(
-                if (state.sort.descending) Glyphs.ArrowDown else Glyphs.ArrowUp,
-                null, size = 13.dp, tint = palette.ink2,
-            )
-        }
-
-        GlyphButton(Glyphs.Search, "Search", onSearch, glyphSize = 20.dp, touchSize = 42.dp)
-        GlyphButton(
-            Glyphs.Filter,
-            if (state.filter.isActive) {
-                "Filter, ${state.filter.activeCount} active"
-            } else {
-                "Filter"
-            },
-            onFilterTap,
-            glyphSize = 20.dp, touchSize = 42.dp,
-            tint = if (state.filter.isActive) palette.signal else palette.ink1,
-        )
-        GlyphButton(
-            if (state.viewMode == ViewMode.List) Glyphs.ViewGrid else Glyphs.ViewList,
-            if (state.viewMode == ViewMode.List) "Switch to grid" else "Switch to list",
-            onViewToggle,
-            glyphSize = 20.dp, touchSize = 42.dp,
-        )
-        GlyphButton(Glyphs.Plus, "New folder", onNewFolder, glyphSize = 20.dp, touchSize = 42.dp)
-    }
-}
 
 @Composable
 private fun GroupHeading(row: BrowseRow.Heading) {
@@ -401,7 +333,7 @@ private fun FileGrid(
         contentPadding = PaddingValues(
             start = Space.gutter - Space.near,
             end = Space.gutter - Space.near,
-            bottom = if (state.selection.isActive) 230.dp else Space.zone,
+            bottom = if (state.selection.isActive || state.selectionMode) 230.dp else Space.zone,
         ),
     ) {
         items(state.items, key = { it.path }) { node ->
@@ -412,7 +344,8 @@ private fun FileGrid(
                 showExtensions = showExtensions,
                 facts = state.folderFacts[node.path],
                 onClick = {
-                    if (state.selection.isActive) onSelect(node) else onOpen(node)
+                    if (state.selectionMode || state.selection.isActive) onSelect(node)
+                    else onOpen(node)
                 },
                 onLongClick = { onSelect(node) },
             )
