@@ -3,14 +3,31 @@
 An offline-first Android file manager, built from the problem rather than
 from the pattern.
 
+### Download
+
+**[FILISH-release.apk — latest release](https://github.com/maddy0070/Filish/releases/latest)**
+
+Requires Android 8.0 (API 26) or newer. Built from source by
+[CI](.github/workflows/release.yml) on every tag, never committed as a binary;
+each release publishes a SHA-256 alongside it.
+
+### Build it yourself
+
 ```
-gradle :app:assembleDebug          # build
-gradle :app:testDebugUnitTest      # 102 tests, no device needed
+./gradlew assembleDebug          # build
+./gradlew testDebugUnitTest      # 102 tests, no device needed
+./gradlew assembleRelease        # signed, minified release APK
 ```
 
-Requires an Android SDK (`local.properties` → `sdk.dir`). Clash Display is
-fetched at build time; an offline build still succeeds with a system-font
-fallback.
+Requires an Android SDK (`local.properties` → `sdk.dir`, or `ANDROID_HOME`).
+Clash Display is fetched at build time; an offline build still succeeds with a
+system-font fallback.
+
+Release builds are signed with a real key when the `FILISH_KEYSTORE_PATH`,
+`FILISH_KEYSTORE_PASSWORD`, `FILISH_KEY_ALIAS` and `FILISH_KEY_PASSWORD`
+environment variables are set, and with the Android debug key otherwise — so
+the output is always installable, but only the former is upgradable across
+builds. No keystore is committed.
 
 ---
 
