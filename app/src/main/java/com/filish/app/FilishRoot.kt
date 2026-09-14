@@ -38,6 +38,7 @@ import com.filish.core.fs.Volume
 import com.filish.core.fs.ops.ConflictPolicy
 import com.filish.core.fs.ops.DeleteEngine
 import com.filish.core.fs.ops.OperationKind
+import com.filish.core.intel.FindingAction
 import com.filish.core.model.FileNode
 import com.filish.core.model.Format
 import com.filish.core.model.ViewMode
@@ -169,6 +170,27 @@ fun FilishRoot(
         nav = nav.push(destination)
     }
 
+    /**
+     * Starting a deletion, from wherever the user is.
+     *
+     * Shared by the browser, investigations and the duplicate screen so that
+     * all three get the same routing, the same honest consequence text, and
+     * the same skip-the-second-dialog behaviour when the platform is already
+     * going to ask.
+     */
+    fun beginDelete(nodes: List<FileNode>) {
+        if (nodes.isEmpty()) return
+        scope.launch {
+            val plan = graph.deletes.plan(nodes)
+            deletePlan = plan
+            if (plan.isFullyRecoverable && settings.skipConfirmWhenRecoverable) {
+                launchTrash(graph, plan, trashLauncher) { overlay = Overlay.Delete }
+            } else {
+                overlay = Overlay.Delete
+            }
+        }
+    }
+
     fun back() {
         if (nav.canGoBack) {
             direction = NavDirection.Back
@@ -259,20 +281,7 @@ fun FilishRoot(
                         onNewFolder = { nameError = null; overlay = Overlay.NewFolder },
                         onCopy = { browse.stage(move = false) },
                         onMove = { browse.stage(move = true) },
-                        onDelete = {
-                            scope.launch {
-                                deletePlan = graph.deletes.plan(state.selection.selectedNodes)
-                                val plan = deletePlan ?: return@launch
-                                // A provably recoverable delete goes straight
-                                // to the platform's own consent dialog rather
-                                // than stacking ours in front of it.
-                                if (plan.isFullyRecoverable && settings.skipConfirmWhenRecoverable) {
-                                    launchTrash(graph, plan, trashLauncher) { overlay = Overlay.Delete }
-                                } else {
-                                    overlay = Overlay.Delete
-                                }
-                            }
-                        },
+                        onDelete = { beginDelete(state.selection.selectedNodes) },
                         onShare = { shareNodes(context, state.selection.selectedNodes) },
                         onMore = { overlay = Overlay.More },
                         onPaste = {
@@ -327,8 +336,57 @@ fun FilishRoot(
                         includeHidden = settings.analysisIncludesHidden,
                         onOpenFolder = { go(Destination.Folder(it)) },
                         onOpenFile = { openFile(context, it) },
+                        onFinding = { finding ->
+                            when (val action = finding.action) {
+                                is FindingAction.OpenFolder -> go(Destination.Folder(action.path))
+                                is FindingAction.OpenDuplicates ->
+                                    go(Destination.Duplicates(destination.volumePath))
+                                is FindingAction.OpenFiltered -> go(
+                                    Destination.Investigation(
+                                        title = finding.headline,
+                                        volumePath = destination.volumePath,
+                                        kinds = action.kinds,
+                                        minSize = action.minSize,
+                                        olderThan = action.olderThan,
+                                    ),
+                                )
+                                is FindingAction.OpenLargest -> go(
+                                    Destination.Investigation(
+                                        title = "Largest files",
+                                        volumePath = destination.volumePath,
+                                        kinds = emptySet(),
+                                        minSize = 50_000_000,
+                                        olderThan = null,
+                                    ),
+                                )
+                            }
+                        },
                         onBack = { back() },
                     )
+
+                    is Destination.Investigation ->
+                        com.filish.feature.storage.InvestigationScreen(
+                            title = destination.title,
+                            roots = listOf(destination.volumePath),
+                            kinds = destination.kinds,
+                            minSize = destination.minSize,
+                            olderThan = destination.olderThan,
+                            includeHidden = settings.analysisIncludesHidden,
+                            onOpenFile = { openFile(context, it) },
+                            onReveal = { go(Destination.Folder(File(it.path).parent ?: it.path)) },
+                            onDelete = { nodes -> beginDelete(nodes) },
+                            onShare = { shareNodes(context, it) },
+                            onBack = { back() },
+                        )
+
+                    is Destination.Duplicates ->
+                        com.filish.feature.storage.DuplicatesScreen(
+                            volumePath = destination.volumePath,
+                            includeHidden = settings.analysisIncludesHidden,
+                            onOpenFile = { openFile(context, it) },
+                            onDelete = { nodes -> beginDelete(nodes) },
+                            onBack = { back() },
+                        )
 
                     is Destination.Settings -> com.filish.feature.settings.SettingsScreen(
                         settings = settings,
@@ -337,7 +395,6 @@ fun FilishRoot(
                         onBack = { back() },
                     )
 
-                    else -> Box(Modifier.fillMaxSize())
                 }
             }
         }

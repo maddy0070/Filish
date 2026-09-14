@@ -99,6 +99,17 @@ fun StorageScreen(
     includeHidden: Boolean,
     onOpenFolder: (String) -> Unit,
     onOpenFile: (FileNode) -> Unit,
+    /**
+     * Every finding goes somewhere it actually promised.
+     *
+     * The first version routed six of seven finding actions through a fallback
+     * that opened the heaviest folder, so tapping "RAW photos are taking up
+     * real space" landed the user in an unrelated directory. Handing the whole
+     * finding to the shell, which owns navigation, removes the fallback
+     * entirely - there is no longer a branch that can quietly do the wrong
+     * thing.
+     */
+    onFinding: (Finding) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -206,12 +217,8 @@ fun StorageScreen(
                     Gap(Space.group)
                 }
                 items(findings.size, key = { findings[it].id }) { index ->
-                    FindingRow(findings[index]) {
-                        when (val action = findings[index].action) {
-                            is FindingAction.OpenFolder -> onOpenFolder(action.path)
-                            else -> report.heaviestFolders.firstOrNull()?.let { onOpenFolder(it.path) }
-                        }
-                    }
+                    val finding = findings[index]
+                    FindingRow(finding) { onFinding(finding) }
                 }
                 item { Gap(Space.zone - 10.dp) }
             }

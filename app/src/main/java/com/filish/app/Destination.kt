@@ -60,9 +60,7 @@ sealed interface Destination {
         val olderThan: Long?,
     ) : Destination
 
-    data object Duplicates : Destination
-
-    data object TrashView : Destination
+    data class Duplicates(val volumePath: String) : Destination
 
     data object Settings : Destination
 
