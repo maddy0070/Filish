@@ -6,6 +6,15 @@ after looking at the result.
 
 Source of truth: `app/src/main/java/com/filish/design/`.
 
+> **V3 — Substrate & Lens.** The material language has been rebuilt. The
+> principles below still hold, and the ink ramp, semantic colours and category
+> tints are unchanged — but surfaces, shapes, interaction states and depth are
+> now governed by [`filish-liquid-glass.md`](filish-liquid-glass.md), which
+> supersedes this document wherever the two disagree. Two revisions are
+> explicit and stated there: rounding, and dark-mode translucency.
+>
+> Tokens: `app/src/main/java/com/filish/design/glass/`.
+
 ---
 
 ## Ground metaphor: strata, not cards
