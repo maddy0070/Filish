@@ -30,6 +30,7 @@ media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
+core-splashscreen = { module = "androidx.core:core-splashscreen", version = "1.0.1" }
 junit = { module = "junit:junit", version = "4.13.2" }
 robolectric = { module = "org.robolectric:robolectric", version = "4.14.1" }
 androidx-test-core = { module = "androidx.test:core-ktx", version = "1.6.1" }

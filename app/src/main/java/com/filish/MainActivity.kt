@@ -4,6 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -35,7 +39,32 @@ import com.filish.design.ThemeChoice
  */
 class MainActivity : ComponentActivity() {
 
+    /** Flipped once storage has been enumerated and the first frame is real. */
+    private var appReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        /*
+         * The system splash is held until FILISH actually has something to
+         * show, then handed straight to the Compose opening.
+         *
+         * Without this, Android 12+ dismisses its splash as soon as the first
+         * frame is drawn - which is an empty list - and the app's own opening
+         * then plays on top of content that is still arriving. Holding it
+         * means the strata the system draws are the same strata the opening
+         * picks up, and the two read as one move.
+         *
+         * The hold is bounded. A device with slow or unreadable storage must
+         * not be stuck looking at a splash screen, so after a short ceiling
+         * FILISH shows its interface and lets the content fill in.
+         */
+        val splash = installSplashScreen()
+        splash.setKeepOnScreenCondition { !appReady }
+        lifecycleScope.launch {
+            val warm = launch { runCatching { applicationContext.filish.volumes.volumes() } }
+            withTimeoutOrNull(1_200) { warm.join() }
+            appReady = true
+        }
+
         // Must be called before setContent so the first frame is already
         // edge to edge - otherwise the opening animation is framed by system
         // bar backgrounds for one frame, which is exactly the kind of flicker

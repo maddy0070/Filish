@@ -79,12 +79,14 @@ fun Opening(
     val wordmark = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
+        // The system splash has already shown the mark and held until the app
+        // was ready, so this picks up mid-gesture rather than introducing
+        // itself again. The wordmark arrives beside the strata that are
+        // already there; there is no separate reveal to sit through.
         launch {
-            wordmark.animateTo(1f, tween(if (reduce) Motion.REDUCED else 260, easing = Motion.enter))
+            wordmark.animateTo(1f, tween(if (reduce) Motion.REDUCED else 200, easing = Motion.enter))
         }
-        // A floor so the transformation is legible rather than a flicker, and
-        // a ceiling so a slow filesystem never traps the user in an animation.
-        delay(if (reduce) 120 else 340)
+        delay(if (reduce) 80 else 180)
     }
 
     LaunchedEffect(ready) {

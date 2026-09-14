@@ -206,6 +206,7 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.documentfile)
     implementation(libs.exifinterface)
+    implementation(libs.core.splashscreen)
 
     testImplementation(libs.junit)
     // Robolectric renders Compose to real bitmaps on the JVM. Without it this

@@ -15,9 +15,23 @@
         <item name="android:windowActivityTransitions">true</item>
     </style>
 
-    <!-- The launch window: the first frame the user sees. It is the same ground
-         colour as the app shell so there is no flash between window and content. -->
-    <style name="Theme.Filish.Splash" parent="Theme.Filish">
-        <item name="android:windowBackground">@color/window_ground</item>
+    <!--
+      The launch window.
+
+      From Android 12 the system draws a splash screen on every cold start
+      whether an app asks for one or not. Before this was configured, FILISH
+      got the default treatment - the launcher icon on a plain window - and
+      then played its own opening afterwards. Two openings in a row, neither
+      related to the other, which reads as a stutter rather than an entrance.
+
+      So the system splash is now FILISH's own mark on FILISH's own ground, and
+      the Compose opening continues from exactly that image: the same three
+      strata, in the same place, which then stretch into the first rows of the
+      list. One continuous move, not two unrelated ones.
+    -->
+    <style name="Theme.Filish.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/window_ground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.Filish</item>
     </style>
 </resources>

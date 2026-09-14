@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The FILISH strata, drawn for the system splash.
+
+  The same motif as the launcher icon and the storage glyph. The Compose
+  opening picks up from this exact arrangement and stretches the bars into the
+  first rows of the file list, so the identity turns into the thing it is for.
+
+  Drawn on a 108 canvas but inset to the 72dp safe zone the system splash
+  masks to, so nothing is clipped.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#16161A"
+        android:pathData="M38,42 h32 a2.5,2.5 0 0 1 2.5,2.5 v5.5 a2.5,2.5 0 0 1 -2.5,2.5 h-32 a2.5,2.5 0 0 1 -2.5,-2.5 v-5.5 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    <path
+        android:fillColor="#16161A"
+        android:pathData="M38,55.5 h21 a2.5,2.5 0 0 1 2.5,2.5 v5.5 a2.5,2.5 0 0 1 -2.5,2.5 h-21 a2.5,2.5 0 0 1 -2.5,-2.5 v-5.5 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+    <path
+        android:fillColor="#2E7D6E"
+        android:pathData="M38,69 h11 a2.5,2.5 0 0 1 2.5,2.5 v5.5 a2.5,2.5 0 0 1 -2.5,2.5 h-11 a2.5,2.5 0 0 1 -2.5,-2.5 v-5.5 a2.5,2.5 0 0 1 2.5,-2.5 z" />
+</vector>
