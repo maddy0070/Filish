@@ -166,3 +166,7 @@ A row's band does not animate at rest. The substrate does not animate, ever.
 The volume animates only while its figure is changing. When the work finishes
 the motion stops, which is also the clearest possible signal that the work
 finished.
+
+> **V4 note.** Press and selection are now the same gesture at two strengths:
+> the object gains a body it does not have at rest. `indication = null` on every
+> content row — Compose's default indication is a ripple.

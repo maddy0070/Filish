@@ -106,6 +106,9 @@ object Fixtures {
         folderFacts = facts,
         refinements = Refinements.forListing(items, now),
         volume = volume,
+        massScale = com.filish.design.glass.Mass.scaleFor(
+            items.map { if (it.isDirectory) facts[it.path]?.measured?.bytes ?: 0L else it.size },
+        ),
     )
 
     /** A mixed selection with folders still resolving - the ledger's whole point. */

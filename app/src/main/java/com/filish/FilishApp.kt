@@ -79,6 +79,13 @@ class FilishApp : Application() {
         val volumes = VolumeRegistry(context)
         val mediaIndex = MediaStoreIndex(context)
         val thumbnails = ThumbnailLoader(context)
+
+        /**
+         * Media signatures reduce an already-decoded thumbnail to three tones
+         * for the spine. Twelve bytes a file, so it shares the thumbnail
+         * loader's lifecycle rather than needing one of its own.
+         */
+        val signatures = com.filish.core.media.MediaSignature(thumbnails)
         val search = SearchEngine()
         val analyzer = StorageAnalyzer()
         val deletes = DeleteEngine(context, mediaIndex)

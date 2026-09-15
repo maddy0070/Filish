@@ -140,7 +140,11 @@ val LightPalette = Palette(
     catApp = Color(0xFF8E5A72),
     catCode = Color(0xFF566B8C),
     catOther = Color(0xFF6B6760),
-    catFolder = Color(0xFF3F3C36),
+    // Muted in V4. As a glyph stroke a near-black folder was correct; as a
+    // MARK it made every folder the heaviest object in the spine regardless of
+    // its size, which is exactly the false hierarchy the mark exists to avoid.
+    // A folder has no kind of its own, so it gets a neutral.
+    catFolder = Color(0xFF6E6A5E),
 
     isDark = false,
 )
@@ -182,7 +186,9 @@ val DarkPalette = Palette(
     catApp = Color(0xFFBE879C),
     catCode = Color(0xFF8397B8),
     catOther = Color(0xFF9A968E),
-    catFolder = Color(0xFFA8A49C),
+    // Muted in V4 - see the light palette. At full strength a folder was the
+    // brightest thing on a dark screen.
+    catFolder = Color(0xFF8A867E),
 
     isDark = true,
 )

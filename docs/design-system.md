@@ -27,6 +27,12 @@ Source of truth: `app/src/main/java/com/filish/design/`.
 > text on open ground; a body appears only under the finger and on selection.
 > Anything below that describes a row as a surface, a card or a panel is
 > superseded.
+>
+> **V4** builds it. `design/spine/` holds the production primitives (`Spine`
+> geometry, `Modifier.contentObject`) and `feature/browse/FileRow.kt` is the
+> first screen in the language. The row anatomy, mass quantisation, selection
+> body and press well are documented in
+> [visual-language.md](visual-language.md#v4--p--spine-in-production).
 
 ---
 

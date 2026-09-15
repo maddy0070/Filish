@@ -109,7 +109,8 @@ class MoreScreensTest : ScreenshotTest() {
             BrowseScreen(
                 state = Fixtures.browseState().copy(viewMode = ViewMode.Grid),
                 clipboard = Clipboard(),
-                showThumbnails = true, showExtensions = true,
+                showThumbnails = true,
+                spineMedia = false, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
                 onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
@@ -127,7 +128,8 @@ class MoreScreensTest : ScreenshotTest() {
             BrowseScreen(
                 state = Fixtures.browseState(),
                 clipboard = Clipboard(),
-                showThumbnails = true, showExtensions = true,
+                showThumbnails = true,
+                spineMedia = false, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
                 onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
@@ -144,7 +146,8 @@ class MoreScreensTest : ScreenshotTest() {
             BrowseScreen(
                 state = Fixtures.browseState(),
                 clipboard = Clipboard(),
-                showThumbnails = true, showExtensions = true,
+                showThumbnails = true,
+                spineMedia = false, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
                 onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},
@@ -161,7 +164,8 @@ class MoreScreensTest : ScreenshotTest() {
             BrowseScreen(
                 state = Fixtures.browseState(items = emptyList()),
                 clipboard = Clipboard(),
-                showThumbnails = true, showExtensions = true,
+                showThumbnails = true,
+                spineMedia = false, showExtensions = true,
                 volumes = listOf(Fixtures.volume),
                 onOpen = {}, onSelect = {}, onRefine = {}, onClearSelection = {},
                 onTokenClick = {}, onStorage = {}, onSearch = {}, onArrange = {},

@@ -132,7 +132,16 @@ object Mass {
      * as big", not "180 megabytes bigger".
      */
     fun relative(bytes: Long, largest: Long): Float {
-        if (largest <= 0L) return 0f
+        // Nothing to compare against - an empty directory, or one where no
+        // size is known yet. Every mark sits at its floor, which is what "no
+        // claim" looks like.
+        //
+        // The <= 1 rather than <= 0 is a real bug fix: quantiseLargest floors
+        // at 1, and log2 clamps its input to 1, so a zero-byte file against a
+        // scale of 1 computed a drop of zero doublings - i.e. "this file is
+        // the largest thing here" - and drew at FULL WIDTH. An empty folder
+        // rendered as a wall of maximum marks.
+        if (largest <= 1L) return 0f
         val drop = log2(largest) - log2(bytes)
         return ((1.0 - drop / SPAN).coerceIn(0.0, 1.0)).toFloat()
     }
@@ -182,6 +191,29 @@ object Mass {
         if (bytes <= 1L) return 1L
         val doublings = kotlin.math.ceil(log2(bytes)).toInt().coerceIn(0, 62)
         return 1L shl doublings
+    }
+
+    /**
+     * The reference a whole listing is scaled against.
+     *
+     * Two properties, both required, both tested:
+     *
+     * QUANTISED, so a streaming measurement does not rescale the spine on
+     * every partial result. See [quantiseLargest].
+     *
+     * MONOTONIC within a listing, via [previous]. A folder's size climbs as
+     * its walk proceeds, and a late folder can overtake everything else - but
+     * the reference must never go DOWN while a directory is on screen, or
+     * every mark would widen and then narrow again as facts arrive. Going up
+     * is honest (something bigger was found); going down is a glitch.
+     *
+     * Reset [previous] to 0 when the user navigates, because a new directory
+     * is a new scale.
+     */
+    fun scaleFor(bytes: Iterable<Long>, previous: Long = 0L): Long {
+        var max = previous
+        for (b in bytes) if (b > max) max = b
+        return quantiseLargest(max)
     }
 
     private fun log2(v: Long): Double = ln(v.coerceAtLeast(1L).toDouble()) / ln(2.0)

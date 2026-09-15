@@ -47,6 +47,18 @@ data class FilishSettings(
     val density: Density = Density.Comfortable,
     val viewMode: ViewMode = ViewMode.List,
     val showThumbnails: Boolean = true,
+    /**
+     * Media signatures in the spine: a photograph's mark tinted with tones
+     * sampled from the photograph itself.
+     *
+     * OFF BY DEFAULT and deliberately separate from [showThumbnails]. It is
+     * the only part of the browse list that costs a decode, and the design
+     * record requires it to be measured on real hardware with a real camera
+     * roll before it is turned on for everyone. The fallback - kind tints - is
+     * a complete design on its own, not a degraded one, so shipping with this
+     * off costs nothing but richness.
+     */
+    val spineMedia: Boolean = false,
 
     // Files
     val showHidden: Boolean = false,
@@ -101,6 +113,7 @@ class SettingsStore(private val context: Context) {
         val density = stringPreferencesKey("density")
         val viewMode = stringPreferencesKey("view_mode")
         val showThumbnails = booleanPreferencesKey("show_thumbnails")
+        val spineMedia = booleanPreferencesKey("spine_media")
         val showHidden = booleanPreferencesKey("show_hidden")
         val showExtensions = booleanPreferencesKey("show_extensions")
         val sortKey = stringPreferencesKey("sort_key")
@@ -135,6 +148,7 @@ class SettingsStore(private val context: Context) {
         viewMode = this[Keys.viewMode]?.let { runCatching { ViewMode.valueOf(it) }.getOrNull() }
             ?: ViewMode.List,
         showThumbnails = this[Keys.showThumbnails] ?: true,
+        spineMedia = this[Keys.spineMedia] ?: false,
         showHidden = this[Keys.showHidden] ?: false,
         showExtensions = this[Keys.showExtensions] ?: true,
         sortKey = this[Keys.sortKey]?.let { runCatching { SortKey.valueOf(it) }.getOrNull() }
@@ -160,6 +174,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setDensity(v: Density) = put { it[Keys.density] = v.name }
     suspend fun setViewMode(v: ViewMode) = put { it[Keys.viewMode] = v.name }
     suspend fun setShowThumbnails(v: Boolean) = put { it[Keys.showThumbnails] = v }
+
+    suspend fun setSpineMedia(v: Boolean) = put { it[Keys.spineMedia] = v }
     suspend fun setShowHidden(v: Boolean) = put { it[Keys.showHidden] = v }
     suspend fun setShowExtensions(v: Boolean) = put { it[Keys.showExtensions] = v }
     suspend fun setSort(spec: SortSpec) = put {

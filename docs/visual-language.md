@@ -1,6 +1,6 @@
 # FILISH Visual Language — Mass & Light / The Spine
 
-**Status: art direction complete. Ready to build screens.**
+**Status: art direction complete. The browse list is built — see [V4](#v4--p--spine-in-production).**
 
 The lineage, kept whole because each step's reasoning still constrains the
 next:
@@ -9,7 +9,8 @@ next:
 |---|---|
 | **V3** — Substrate & Lens ([doc](filish-liquid-glass.md)) | *what is this made of* |
 | **V3.1** — Mass & Light | *what carries hierarchy* |
-| **V3.2** — The Spine *(this round)* | *what does this place look like* |
+| **V3.2** — The Spine | *what does this place look like* |
+| **V4** — production *(current)* | *does it survive real files* |
 
 > ### The reference images did not reach this environment
 >
@@ -465,3 +466,148 @@ Not the root, even though the root is the better picture.
 4. Press and selection.
 5. Media slivers last, behind a flag, with the thumbnail request pipeline
    measured before it ships.
+
+---
+
+# V4 — P · Spine in production
+
+The browse list is built. This section is the implementation record: what a
+future engineer needs to reproduce the language without this conversation.
+
+## Row anatomy
+
+```
+|<-18->|<---- 26 ---->|<-16->|
+|      |  ▉▉▉▉        |      DSC01847.ARW              <- name, 15sp Medium
+|      |  ▉▉▉▉        |      51.3 MB · ARW · 1 wk ago  <- size promoted, rest quiet
+ gutter    channel     detach  text column starts at 60dp, always
+```
+
+| Token | Value | Why |
+|---|---|---|
+| `Spine.gutter` | 18dp | enough that the spine is inside the composition, not clamped to the bezel |
+| `Spine.channel` | 26dp | at 16dp the marks read as coloured tabs; at 26dp, detached, as a landscape |
+| `Spine.detach` | 16dp | substrate must show between mark and ink, or the mark is a row decoration |
+| `Spine.textInset` | 60dp | fixed — a ragged spine must never make a ragged text column |
+| `Spine.markGap` | 2dp | **load-bearing**; without it same-size neighbours fuse into one bar |
+| `Spine.rowPadding` | 9dp | with one name line this lands just under the floor |
+| `Spine.minHeight` | 48dp | a **floor**, never a target |
+| row → row | 0 | rows abut, so a selected run merges into one body |
+
+**The leading glyph was removed.** A 40dp icon beside every name is the
+card+icon+text pattern the direction rejects, and kind is already in the
+metadata line in words. Removing it reclaims roughly what the 60dp inset costs,
+so the name column is no narrower than before.
+
+## Content-height rows
+
+No height is specified anywhere. `defaultMinSize(minHeight = 48dp)` is the only
+constraint; the name (2 lines, **3 at fontScale ≥ 1.5**) and the metadata
+determine the rest. The mark is drawn from the *measured* size, so the spine
+follows a font-scale change automatically.
+
+`RowMetricsTest` composes real rows through the real layout system at scale
+1.0 / 1.3 / 2.0 and asserts: never below the floor, always taller when type
+grows, taller again when a name wraps, and ten rows exactly ten rows tall (which
+guards against a stray margin breaking the selection body).
+
+**The metadata line is a `FlowRow`, not a `Row`.** At 2.0× a single line cannot
+hold `6.24 GB · 4,180 items · 3 days ago` on 411dp and a `Row` silently
+truncated the date. Each separator dot travels with its piece so a wrap never
+orphans one.
+
+## Mass quantisation
+
+```kotlin
+Mass.scaleFor(bytes, previous)   // quantised to whole doublings, monotonic
+Mass.markWidth(bytes, scale)     // 4dp floor, 26dp ceiling
+```
+
+Two properties, both required, both tested:
+
+- **Quantised** — a folder walk emits hundreds of partial totals; snapping the
+  reference to doublings caps rescales at the doublings crossed. 400 partials
+  produce ≤ 16 rescales.
+- **Monotonic within a directory** — the reference may rise (something bigger
+  was found) but never fall, or every mark would widen and then narrow. It
+  resets to 0 on navigation, because a new directory is a new scale.
+
+`BrowseState.massScale` holds it. Folder measurements fold in with one
+comparison (`withMeasured`) rather than an O(n) rescan, so a directory of
+thousands does not become O(n²) over a load.
+
+> **Bug found and fixed here.** `quantiseLargest` floors at 1 and `log2` clamps
+> its input to 1, so a zero-byte file against a scale of 1 computed a drop of
+> zero doublings — "this is the biggest thing here" — and drew at **full
+> width**. An empty folder rendered as a wall of maximum marks. `relative` now
+> returns 0 for any scale ≤ 1. A `MassTest` assertion had encoded the old
+> behaviour and was replaced.
+
+## Selection and press
+
+Both are states of the same thing: the object gaining a body it does not have
+at rest.
+
+- **Press** — `World.touched()` cuts a well under the object. `indication = null`
+  on the clickable is load-bearing; Compose's default is a ripple.
+- **Selection** — full ground inversion. Because rows abut, adjacent selections
+  merge into one collective body with the unselected cut out of it. No grouping
+  logic, no first/last rounding — just adjacency.
+- A selected mark keeps its width **and** its hue (scaled toward the ground, not
+  alpha-faded, which would wash every kind to the same colour).
+- A trailing tick appears only while a selection is running — secondary
+  confirmation, never a checkbox column stealing width from every name forever.
+
+## Media signatures (flag: `spineMedia`, default OFF)
+
+A photograph's mark is tinted with **three tones sampled from the photograph**,
+not a crop of it. Drawing the thumbnail itself would mean a bitmap draw per
+visible row per frame and a retained bitmap per row, for detail nobody can
+resolve in a 26dp strip. What a strip communicates is *tone*, and tone survives
+reduction to three colours: a three-stop gradient costs the same as the flat
+tint it replaces, and the cache entry is twelve bytes.
+
+`MediaSignature` never decodes on its own — it samples a bitmap the loader has
+already produced. `rememberSignature` requests a **32px** target purely to
+derive tones. Returning null is normal and the fallback (kind tint) is a
+finished design, not a placeholder.
+
+**It stays off until measured on real hardware with a real camera roll.** No
+decode-cost claim is made here.
+
+## Findings
+
+- **5,000 files, real pipeline:** 5,040 entries listed in **66 ms**, whole-spine
+  geometry in **4 ms** (`LargeDirectoryTest`, sparse files, JVM). This proves
+  the listing and geometry paths; it says nothing about frame rate, which needs
+  a device.
+- **Folder marks were muted** (`catFolder` → `#6E6A5E` / `#8A867E`). At full
+  strength a folder was the heaviest object in the spine regardless of size —
+  the exact false hierarchy the mark exists to prevent.
+- `.RAW` classifies as Other, not Image. That is existing intended behaviour
+  (`FileKind` excludes ambiguous bare `raw`), visible now that the mark carries
+  kind colour.
+
+## Anti-patterns
+
+- Any `Card`, `Surface`, `ListItem` or `Scaffold` default background in a
+  content row. There is exactly one place a body may come from:
+  `Modifier.contentObject`.
+- `indication` left at its default on a row — that is a ripple.
+- A fixed row height.
+- A `Row` for the metadata line — it truncates at large font scales.
+- Deriving a mark tint from anything other than magnitude, kind or the object's
+  own content. Never from a filename hash.
+- Letting the mark be the only place a size appears.
+
+## Not yet done
+
+- **Folder composite marks** from contents. `SizeResolver` already walks every
+  folder and could accumulate a kind histogram for almost nothing; deferred
+  rather than half-built, so folders currently use a neutral.
+- **Grid view, Properties, Duplicates** still use the pre-V4 `FileMark`
+  (thumbnail or glyph). They were moved to `FileMark.kt` untouched — a component
+  that is neither the old language nor the new one is worse than either.
+- **Threshold composition** (the display-scale figure at the top of a listing)
+  is designed but not built; the browse screen keeps its V2 path rail and
+  action bar.

@@ -285,6 +285,7 @@ fun FilishRoot(
                         state = state,
                         clipboard = clipboard,
                         showThumbnails = settings.showThumbnails,
+                        spineMedia = settings.spineMedia,
                         showExtensions = settings.showExtensions,
                         volumes = volumes,
                         onOpen = { node ->

@@ -145,8 +145,34 @@ class MassTest {
                 "$b quantised to ${Mass.quantiseLargest(b)}, which is smaller",
                 Mass.quantiseLargest(b) >= b,
             )
-            // The largest item must still fill the channel after quantising.
+        }
+        // The largest item fills the channel - for every scale that means
+        // anything. The degenerate case is covered separately below.
+        for (b in listOf(2L, 1023L, 1024L, 1025L, 999_999_999L, 1L shl 40)) {
             assertTrue(Mass.relative(b, Mass.quantiseLargest(b)) > 0.9f)
+        }
+    }
+
+    /**
+     * A directory where nothing has a measurable size draws every mark at the
+     * floor, not at full width.
+     *
+     * This assertion replaces one that encoded a real bug. quantiseLargest
+     * floors at 1 and log2 clamps its input to 1, so a zero-byte file against a
+     * scale of 1 computed a drop of zero doublings - "this is the biggest thing
+     * here" - and drew at maximum width. An empty folder rendered as a wall of
+     * full-width marks.
+     */
+    @Test
+    fun `a directory with nothing measurable draws every mark at the floor`() {
+        for (scale in listOf(0L, 1L)) {
+            for (b in listOf(0L, 1L, 4096L)) {
+                assertEquals(
+                    "bytes=$b against scale=$scale should be the floor",
+                    Mass.markMin,
+                    Mass.markWidth(b, scale),
+                )
+            }
         }
     }
 

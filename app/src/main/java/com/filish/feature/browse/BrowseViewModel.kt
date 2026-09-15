@@ -11,6 +11,7 @@ import com.filish.core.model.FilterSpec
 import com.filish.core.model.GroupKey
 import com.filish.core.model.Kinds
 import com.filish.core.model.MeasuredSize
+import com.filish.design.glass.Mass
 import com.filish.core.model.NaturalOrder
 import com.filish.core.model.SortKey
 import com.filish.core.model.SortSpec
@@ -55,6 +56,15 @@ data class BrowseState(
     val filter: FilterSpec = FilterSpec(),
     val viewMode: ViewMode = ViewMode.List,
     val folderFacts: Map<String, RowFacts> = emptyMap(),
+    /**
+     * The quantised magnitude reference every mark in the spine is scaled
+     * against. See [com.filish.design.glass.Mass.scaleFor]: quantised so a
+     * streaming measurement cannot make the spine jitter, and monotonic within
+     * a directory so marks never widen and then narrow as facts arrive.
+     *
+     * Zero means "nothing measurable yet", and every mark sits at its floor.
+     */
+    val massScale: Long = 0L,
     val refinements: List<SelectionRefinement> = emptyList(),
     val volume: Volume? = null,
     val isRoot: Boolean = false,
@@ -148,6 +158,10 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                 rows = emptyList(),
                 selection = Selection(),
                 folderFacts = emptyMap(),
+                // A new directory is a new scale. Carrying the old reference
+                // across would render the first folder you enter from a huge
+                // one as a row of floor-width marks.
+                massScale = 0L,
                 selectionMode = false,
                 isRoot = volumes.any { v -> v.path == path },
                 volume = volumes.firstOrNull { v -> v.contains(path) },
@@ -247,6 +261,7 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                 rawCount = entries.size,
                 hiddenCount = hidden,
                 refinements = Refinements.forListing(sorted),
+                massScale = scaleFor(sorted, it.folderFacts, it.massScale),
             )
         }
     }
@@ -342,6 +357,39 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
         reorder()
     }
 
+
+    // ---- magnitude scale -----------------------------------------------------
+
+    /**
+     * The reference every mark in this listing is scaled against.
+     *
+     * Files contribute their own size; folders contribute their measured size
+     * once a walk has produced one. [previous] keeps it monotonic inside a
+     * directory - see [Mass.scaleFor] - and navigation resets it to zero,
+     * because a new directory is a new scale.
+     */
+    private fun scaleFor(
+        items: List<FileNode>,
+        facts: Map<String, RowFacts>,
+        previous: Long,
+    ): Long = Mass.scaleFor(
+        items.asSequence().map { node ->
+            if (node.isDirectory) facts[node.path]?.measured?.bytes ?: 0L else node.size
+        }.asIterable(),
+        previous,
+    )
+
+    /**
+     * Folds a folder's newly measured size into the scale.
+     *
+     * Cheap on purpose: one comparison against the running reference rather
+     * than a fresh pass over the listing. A measurement arrives per folder, and
+     * a directory can hold thousands, so an O(n) rescan per result would be
+     * O(n^2) over a load.
+     */
+    private fun BrowseState.withMeasured(bytes: Long): Long =
+        Mass.scaleFor(listOf(bytes), massScale)
+
     // ---- row facts ---------------------------------------------------------
 
     /**
@@ -376,7 +424,10 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
                     val measured = graph.sizes.measureOnce(folder.path)
                     _state.update { s ->
                         val existing = s.folderFacts[folder.path] ?: RowFacts()
-                        s.copy(folderFacts = s.folderFacts + (folder.path to existing.copy(measured = measured)))
+                        s.copy(
+                            folderFacts = s.folderFacts + (folder.path to existing.copy(measured = measured)),
+                            massScale = s.withMeasured(measured.bytes),
+                        )
                     }
                 }
                 if (_state.value.sort.key == SortKey.Size ||
@@ -395,7 +446,10 @@ class BrowseViewModel(app: Application) : AndroidViewModel(app) {
             graph.sizes.measure(listOf(node.path)).collect { m ->
                 _state.update { s ->
                     val existing = s.folderFacts[node.path] ?: RowFacts()
-                    s.copy(folderFacts = s.folderFacts + (node.path to existing.copy(measured = m)))
+                    s.copy(
+                        folderFacts = s.folderFacts + (node.path to existing.copy(measured = m)),
+                        massScale = s.withMeasured(m.bytes),
+                    )
                 }
             }
         }
