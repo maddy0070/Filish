@@ -104,6 +104,13 @@ jobs:
           FILISH_KEY_PASSWORD: ${{ secrets.FILISH_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleRelease
 
+      # The QA instrumentation - the readout and the dataset builder - lives
+      # behind BuildConfig.DEBUG, so a release APK cannot reach it. A device QA
+      # round needs the debug build, and asking a tester to install Android
+      # Studio to get one is how a QA round does not happen.
+      - name: Build the debug APK for device QA
+        run: ./gradlew --no-daemon assembleDebug
+
       - name: Name it, and verify it is genuinely signed
         id: apk
         run: |
@@ -114,6 +121,12 @@ jobs:
 
           mkdir -p dist
           cp "${SRC}" dist/FILISH-release.apk
+
+          DBG=$(find app/build/outputs/apk/debug -name '*.apk' | head -1)
+          if [ -n "${DBG}" ]; then
+            cp "${DBG}" dist/FILISH-debug-qa.apk
+            echo "Debug QA build: ${DBG}"
+          fi
 
           BUILD_TOOLS=$(ls -d "${ANDROID_HOME}"/build-tools/* | sort -V | tail -1)
           # An unsigned APK cannot be installed, so a release that ships one is
@@ -147,6 +160,7 @@ jobs:
           path: |
             dist/FILISH-release.apk
             dist/FILISH-release.apk.sha256
+            dist/FILISH-debug-qa.apk
           if-no-files-found: error
           retention-days: 90
 
@@ -190,6 +204,8 @@ jobs:
 
           ## Known gaps
 
+          **FILISH-debug-qa.apk** is the same build with device-QA instrumentation: a readout over the browse list showing the mass scale and mark spread, and a builder for the test directories in [docs/device-qa.md](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/docs/device-qa.md). Install that one for a QA pass; install FILISH-release.apk for normal use.
+
           File operations do not survive the process being killed, audio has no background playback, and archive support is not implemented. See [docs/platform-constraints.md](https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/docs/platform-constraints.md).
           EOF
 
@@ -201,12 +217,14 @@ jobs:
             gh release upload "${TAG}" \
               dist/FILISH-release.apk \
               dist/FILISH-release.apk.sha256 \
+              dist/FILISH-debug-qa.apk \
               --clobber
           else
             echo "Creating release ${TAG}."
             gh release create "${TAG}" \
               dist/FILISH-release.apk \
               dist/FILISH-release.apk.sha256 \
+              dist/FILISH-debug-qa.apk \
               --title "FILISH ${TAG}" \
               --notes-file dist/notes.md \
               --target "${GITHUB_SHA}"
