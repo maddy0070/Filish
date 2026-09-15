@@ -78,16 +78,50 @@ object Mass {
      */
     const val SPAN = 16.0
 
-    /** The fixed gutter the mark lives in. Text starts after it, always in the
-     *  same place, so a ragged mark never makes a ragged text column. */
-    val channel: Dp = 18.dp
+    /**
+     * THE SPINE.
+     *
+     * The channel the marks live in, and the distance from the frame to it.
+     * Text starts at [textInset] always, so a ragged spine never produces a
+     * ragged text column.
+     *
+     * The channel widened from 18dp to 26dp in V3.2. At 16dp the marks read as
+     * coloured tabs stuck to rows - a labelling convention, and a borrowed one.
+     * At 26dp, detached from the text with substrate visible between, they
+     * read as a continuous profile of the folder: a landscape legible from
+     * across the room. That is the difference between a design system and an
+     * art direction, and it costs 8dp of a 411dp screen.
+     */
+    val gutter: Dp = 18.dp
+    val channel: Dp = 26.dp
+    val textInset: Dp = 60.dp
 
-    /** Floor. Nothing is ever invisible - a 0-byte file is still an object. */
-    val markMin: Dp = 3.dp
+    /**
+     * The gap above and below each mark.
+     *
+     * LOAD-BEARING. The remove-30% pass rendered the spine without gaps and
+     * four consecutive RAW files of near-identical size fused into a single
+     * continuous orange bar - as did the two folders, and the three HEICs.
+     * Runs of same-kind, same-size files are not an edge case; they are burst
+     * photography, screenshots and exports, which is most of a camera folder.
+     *
+     * This replaces V3.1's cut hairline. With no row body there is nothing to
+     * cut, so separation moves into the spine, where it also makes the profile
+     * more graphic rather than less.
+     */
+    val gap: Dp = 2.dp
+
+    /**
+     * Floor. Nothing is ever invisible - a 0-byte file is still an object.
+     *
+     * Raised from 3dp: at 3dp on a dark ground the smallest marks were a faint
+     * hairline that read as an artefact rather than as an object.
+     */
+    val markMin: Dp = 4.dp
 
     /** Ceiling. Wider than this and the mark stops being an edge and starts
      *  being a panel. */
-    val markMax: Dp = 16.dp
+    val markMax: Dp = 26.dp
 
     /**
      * Magnitude as 0..1, relative to the largest item in the same listing.

@@ -14,20 +14,28 @@ import kotlin.math.pow
 /**
  * The world, audited.
  *
- * Two things make an art direction like this dangerous, and both are pinned
- * here rather than trusted:
+ * ===========================================================================
+ * V3.2 made this test much shorter, and that is the finding
+ * ===========================================================================
  *
- *   1. The body of an object is a translucent tone over an environment, so the
- *      real background of a file name is a composite - the same problem V3
- *      solved for the lens, at the scale of the whole screen.
+ * In V3.1 every file name sat on a translucent body composited over a gradient
+ * environment, so the audit had to reason about composites, worst-case ends,
+ * lit variants and a recessed-ground exception - and day mode still kept
+ * failing, which forced the environment darker, which broke metadata on the
+ * environment, which pushed the signal colour. A chain of compromises
+ * descending from a rectangle that was not earning its place.
  *
- *   2. The direction is *about* light, and light is the easiest thing in
- *      interface design to overspend. Direction H put a file at 26% alpha
- *      because it looked good.
+ * V3.2 deleted the rectangle. At rest, text sits on a flat opaque ground, and
+ * the entire composite problem went with it. An art-direction decision taken
+ * for authorship turned out to be the accessibility simplification too.
  *
- * So the central assertion in this file is not "the lit state looks nice". It
- * is that **the UNLIT state is fully legible on its own** - illumination is
- * only ever added, so if the dark state passes, every state passes.
+ * What remains to prove:
+ *
+ *   1. the full ink ramp is legible directly on the environment, both themes
+ *   2. the mark is distinguishable from the environment it sits in
+ *   3. a selected object - the only thing with a surface - is legible, and
+ *      keeps its magnitude and its identity
+ *   4. light still cannot touch a text background
  */
 class WorldContrastTest {
 
@@ -54,138 +62,107 @@ class WorldContrastTest {
 
     private val themes = listOf("night" to DarkPalette, "day" to LightPalette)
 
-    /** The opaque colour a file name is actually drawn against. */
-    private fun bodyOver(p: Palette, atTop: Boolean): Color {
-        val ground = if (atTop) World.high(p.isDark) else World.low(p.isDark)
-        return Skin.over(World.body(p.isDark), ground)
-    }
-
-    @Test
-    fun `an unlit object is fully legible on its own`() {
-        for ((theme, p) in themes) {
-            for (atTop in listOf(true, false)) {
-                val bg = bodyOver(p, atTop = atTop)
-                assertAtLeast(4.5, p.ink0, bg, "$theme ink0 on an unlit object")
-                assertAtLeast(4.5, p.ink1, bg, "$theme ink1 on an unlit object")
-                // Sizes, dates and counts. In a file manager this is content.
-                assertAtLeast(4.5, p.ink2, bg, "$theme ink2 on an unlit object")
-            }
-        }
-    }
+    private fun stops(p: Palette) = listOf(World.high(p.isDark), World.low(p.isDark))
 
     /**
-     * The structural guarantee: there is exactly ONE object ground, and
-     * illumination is not a variant of it.
-     *
-     * This started life as "illumination must not cost a row its legibility",
-     * which failed at 4.22:1 in day. The fix was to take light off the body
-     * entirely, and this test is the shape that fix leaves behind - not "the
-     * lit state also passes" but "there is no lit state to pass". A future
-     * change that reintroduces a lit body has to delete this test first, which
-     * is the point.
+     * The central assertion. With no object body, this IS the background of
+     * every file name, size, date and count in the application.
      */
     @Test
-    fun `there is no second object ground for light to live on`() {
+    fun `the whole ink ramp is legible directly on the environment`() {
         for ((theme, p) in themes) {
-            val fields = World::class.java.methods.map { it.name }
-            if (fields.any { it == "lit" }) {
-                throw AssertionError(
-                    "$theme: World.lit exists again - light belongs in the gutter, " +
-                        "on the mark, never on a text background",
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `semantic colours survive the world`() {
-        for ((theme, p) in themes) {
-            val bg = bodyOver(p, atTop = true)
-            assertAtLeast(4.5, p.danger, bg, "$theme danger on an object")
-            assertAtLeast(4.5, p.signal, bg, "$theme signal on an object")
-            assertAtLeast(4.5, p.warn, bg, "$theme warn on an object")
-            assertAtLeast(4.5, p.ok, bg, "$theme ok on an object")
-        }
-    }
-
-    /**
-     * The mark is the whole art direction. If it cannot be told apart from the
-     * body it sits on, magnitude, kind and identity all fail at once - and it
-     * has to hold on the inverted ground of a selection too, which is exactly
-     * when the user is deciding what to delete.
-     */
-    @Test
-    fun `the magnitude mark is visible on every ground it can sit on`() {
-        for ((theme, p) in themes) {
-            val resting = bodyOver(p, atTop = true)
-            for ((name, tint) in tints(p)) {
-                assertAtLeast(3.0, tint, resting, "$theme $name mark on an object")
-                assertAtLeast(3.0, onInverted(tint, p), p.selectGround, "$theme $name mark when selected")
-            }
-        }
-    }
-
-    /**
-     * An object must be distinguishable from the environment it rests in, or
-     * the list stops being a list of things and becomes a wall of text.
-     */
-    @Test
-    fun `objects are distinguishable from the environment`() {
-        for ((theme, p) in themes) {
-            val obj = bodyOver(p, atTop = true)
-            val env = World.high(p.isDark)
-            val r = ratio(obj, env)
-            if (r < 1.12) {
-                throw AssertionError(
-                    "$theme objects are indistinguishable from the world " +
-                        "(${Math.round(r * 100) / 100.0}:1)",
-                )
-            }
-        }
-    }
-
-    /**
-     * The environment is a recessed ground in both themes, so it carries ink1
-     * as its quietest step - never ink2. Same rule V3 established for wells and
-     * the storage volume, applying again rather than a new exception.
-     *
-     * In day, dropping the environment to give the paper somewhere to be puts
-     * ink2 on it at 4.12:1. Rather than lighten the desk back into the wall
-     * that caused it, the ramp steps up, exactly as it does everywhere else
-     * something is darker than the surface beside it.
-     */
-    @Test
-    fun `the environment carries the ink steps that clear AA on it`() {
-        for ((theme, p) in themes) {
-            for (stop in listOf(World.high(p.isDark), World.low(p.isDark))) {
+            for (stop in stops(p)) {
                 assertAtLeast(4.5, p.ink0, stop, "$theme ink0 on the environment")
                 assertAtLeast(4.5, p.ink1, stop, "$theme ink1 on the environment")
+                // Sizes, dates and counts. In a file manager this is content.
+                assertAtLeast(4.5, p.ink2, stop, "$theme ink2 on the environment")
+            }
+        }
+    }
+
+    @Test
+    fun `semantic colours are legible on the environment`() {
+        for ((theme, p) in themes) {
+            val bg = World.high(p.isDark)
+            assertAtLeast(4.5, p.danger, bg, "$theme danger")
+            assertAtLeast(4.5, p.signal, bg, "$theme signal")
+            assertAtLeast(4.5, p.warn, bg, "$theme warn")
+            assertAtLeast(4.5, p.ok, bg, "$theme ok")
+        }
+    }
+
+    /**
+     * The spine is the whole art direction. A mark that cannot be told apart
+     * from the ground carries neither magnitude nor kind nor identity.
+     */
+    @Test
+    fun `every mark is visible against the environment`() {
+        for ((theme, p) in themes) {
+            for (stop in stops(p)) {
+                for ((name, tint) in tints(p)) {
+                    assertAtLeast(3.0, tint, stop, "$theme $name mark on the environment")
+                }
             }
         }
     }
 
     /**
-     * The cut is load-bearing - three consecutive same-size RAW files merged
-     * into one block without it - so it has to actually be visible.
+     * A selected object is the only thing in a listing with a surface, and it
+     * must not lose the two things the mark carries.
      */
     @Test
-    fun `the cut between objects is visible`() {
+    fun `a held object keeps its legibility, its magnitude and its identity`() {
         for ((theme, p) in themes) {
-            val obj = bodyOver(p, atTop = true)
-            val cut = Skin.over(World.cut(p.isDark), obj)
-            val r = ratio(cut, obj)
-            if (r < 1.10) {
+            assertAtLeast(4.5, p.selectInk, p.selectGround, "$theme ink on a held object")
+            for ((name, tint) in tints(p)) {
+                assertAtLeast(3.0, onInverted(tint, p), p.selectGround, "$theme $name mark when held")
+            }
+            // And a held object must be obvious against the open ground it
+            // materialised out of.
+            assertAtLeast(3.0, p.selectGround, World.high(p.isDark), "$theme held object against the world")
+        }
+    }
+
+    /** Pressing must be visible without being a second selection state. */
+    @Test
+    fun `a touched object is visible but weaker than a held one`() {
+        for ((theme, p) in themes) {
+            val env = World.high(p.isDark)
+            val touched = Skin.over(World.touched(p.isDark), env)
+            val touchDelta = ratio(touched, env)
+            val holdDelta = ratio(p.selectGround, env)
+            if (touchDelta < 1.10) {
                 throw AssertionError(
-                    "$theme cut is invisible against the object body " +
-                        "(${Math.round(r * 100) / 100.0}:1)",
+                    "$theme press is invisible (${Math.round(touchDelta * 100) / 100.0}:1)",
                 )
             }
+            if (touchDelta >= holdDelta) {
+                throw AssertionError("$theme press is as strong as selection; they must rank")
+            }
+            // Text stays legible while the finger is down.
+            assertAtLeast(4.5, p.ink2, touched, "$theme ink2 on a touched object")
+        }
+    }
+
+    /**
+     * The structural guarantee. Light lives in the gutter, on the mark, where
+     * no text sits - so there is no lit text background to audit, and a future
+     * change that reintroduces one has to delete this test first.
+     */
+    @Test
+    fun `there is no lit text background for light to live on`() {
+        val methods = World::class.java.methods.map { it.name }
+        if (methods.any { it == "lit" || it == "body" }) {
+            throw AssertionError(
+                "World.lit or World.body is back - at rest an object has no surface, " +
+                    "and light belongs on the mark, never on a text background",
+            )
         }
     }
 
     private fun onInverted(tint: Color, p: Palette): Color =
         if (p.isDark) {
-            Color(tint.red * 0.38f, tint.green * 0.38f, tint.blue * 0.38f, 1f)
+            Color(tint.red * 0.34f, tint.green * 0.34f, tint.blue * 0.34f, 1f)
         } else {
             Color(
                 tint.red + (1f - tint.red) * 0.45f,

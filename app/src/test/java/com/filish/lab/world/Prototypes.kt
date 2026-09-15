@@ -70,7 +70,10 @@ private fun Ob(
         Modifier
             .fillMaxWidth()
             .height(height.dp)
-            .worldObject(p, bytes, largest, tint, selected, illuminated, provisional),
+            .worldObject(
+                p, bytes, largest, tint,
+                selected = selected, illuminated = illuminated, provisional = provisional,
+            ),
     ) {
         Column(Modifier.padding(start = Mass.channel + 12.dp, end = 16.dp, top = 10.dp)) {
             BasicTextCompat(
@@ -167,7 +170,7 @@ private fun MediaField(p: Palette) {
                     .weight(0.35f + Mass.relative(bytes, largest))
                     .fillMaxSize()
                     .drawWithCache {
-                        val cutC = World.cut(p.isDark)
+                        val cutC = World.high(p.isDark)
                         onDrawBehind {
                             drawRect(tone)
                             drawRect(

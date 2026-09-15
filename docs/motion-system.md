@@ -120,7 +120,9 @@ transition:
 | Event | What moves |
 |---|---|
 | a folder's size resolving | its mark **grows**, at reduced intensity, and stops when the figure settles |
-| an object selected | the ground inverts; the mark holds its width |
+| press | the body **materialises** under the finger — at rest an object has no surface at all |
+| an object selected | the body completes; adjacent selections merge into one continuous mass |
+| deselection | the body releases and the object returns to open ground |
 | a move in flight | the source's mark narrows, the destination's widens, segments cross the gutter |
 | a copy | nothing about the source changes — that is the information |
 | departing to trash | the object shrinks toward somewhere it still exists |

@@ -3,125 +3,123 @@ package com.filish.design.glass
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import com.filish.design.Palette
 
 /**
  * An object in the world.
  *
  * ===========================================================================
- * Objects are not lenses
+ * At rest, a file has no surface
  * ===========================================================================
  *
- * V3 drew every row as a lens - a discrete piece of glass with a rim and a
- * radius, resting on the substrate. V3.1 separates the two, and the split is
- * the most important structural change in this round:
+ * No rectangle, no container, no card, no rim, no radius, no shadow. A file is
+ * a MARK IN THE SPINE and two lines of text on open ground.
  *
- *   LENS    a transient surface that is NOT content - an action bar, a sheet,
- *           a confirmation, a ledger. It has a rim, a radius, a shadow and it
- *           will go away again. Modifier.lens().
- *
- *   OBJECT  the user's own files. No rim, no radius, no shadow. Cuts in a
- *           continuous body, distinguished by a mark and a hairline.
- *
- * The reason is the V3 density finding, taken to its conclusion. At list
- * spacing a column of lenses stopped reading as cards and started reading as
- * one body - so the rim, the radius and the corner geometry were doing nothing
- * except costing draw calls on the most frequent element in the application.
- * Content is a material you cut; chrome is an object you place.
- *
- * It is also what stops FILISH looking like every other dark file manager.
- * The control render - this list with the mark removed - is clean, legible and
- * completely anonymous. The mark is the difference.
+ * This is the V3.2 move and it is the one that gave FILISH authorship. V3.1's
+ * filled rows were materially correct and visually anonymous; the control
+ * render - the same screen with the mark removed - could have been any of a
+ * dozen apps. Taking the rectangle away leaves the spine as the only structure
+ * on screen, and the spine is the thing nobody else has.
  *
  * ===========================================================================
- * What the mark carries
+ * THE BODY IS A STATE
  * ===========================================================================
  *
- *   width      magnitude, relative to the listing  (see [Mass])
- *   hue        kind
- *   intensity  state: full when known, reduced while a size is still resolving
- *   presence   this is a FILISH object
+ * A body appears under the finger and on selection. So the material that used
+ * to be every row's default now means exactly one thing: this object is under
+ * your control. Press and selection become one gesture at two strengths rather
+ * than two unrelated effects, and a run of selected files reads as a single
+ * solid body with the unselected ones cut out of it - which is what "these are
+ * now a collection" should look like.
  *
- * Width, hue and intensity are separable channels, so they do not interfere;
- * width and intensity survive greyscale. This is a deliberate concentration -
- * one element carries a lot so that the rest of the row can carry almost
- * nothing, which is what makes the list quiet.
+ * ===========================================================================
+ * THE MARK SHOWS THE MOST SPECIFIC THING AVAILABLE
+ * ===========================================================================
+ *
+ *   a photograph   a vertical sliver of that photograph
+ *   a video        a sliver of its poster frame
+ *   a folder       a composite of what is inside it
+ *   anything else  its kind tint
+ *
+ * The no-media control proved this is load-bearing. With flat category tints a
+ * run of seven photographs is seven identical orange bars, and the spine says
+ * only "these are images" - which the extension already said. With slivers the
+ * spine is a record of the actual pictures, and a shot is findable by tone
+ * before its filename is read.
+ *
+ * It is contrast-safe by construction: the spine is a gutter. No text sits on
+ * it and none ever can, so unlike every other attempt to bring media into the
+ * composition, the user's photographs cannot affect the legibility of a single
+ * glyph.
+ *
+ * The cost, stated plainly: hue stops carrying KIND for media files. That is
+ * the same discipline as everywhere else here - kind is in the metadata line,
+ * in words, always. The mark is for the glance; the ink is for the answer.
  */
 fun Modifier.worldObject(
     palette: Palette,
     bytes: Long,
     largest: Long,
     tint: Color,
+    /** A sliver of the object's own content, when it has any. */
+    media: ShaderBrush? = null,
     selected: Boolean = false,
+    pressed: Boolean = false,
     illuminated: Boolean = false,
     provisional: Boolean = false,
-    cut: Boolean = true,
 ): Modifier = drawWithCache {
     val dark = palette.isDark
     val markWidth = Mass.markWidth(bytes, largest).toPx()
-    val hairline = 1.dp.toPx()
+    val gap = Mass.gap.toPx()
+    val x = Mass.gutter.toPx()
     val leading = layoutDirection == LayoutDirection.Ltr
-
-    // Illumination deliberately does NOT appear here. See Light: the body of
-    // an object is a text background, and light never touches one.
-    val ground = if (selected) palette.selectGround else World.body(dark)
-
-    // A selected row inverts its ground, so the mark has to move with it or the
-    // row loses its magnitude the moment it is selected - which is exactly when
-    // the user is deciding whether to delete it.
-    val mark = if (selected) onInverted(tint, palette) else tint
-    val markColour = when {
-        provisional -> mark.copy(alpha = Mass.PROVISIONAL_INTENSITY)
-        illuminated -> mark.copy(alpha = Light.ATTENTION)
-        else -> mark.copy(alpha = Light.REST)
-    }
     val bloomWidth = Light.bloom.toPx()
-    val cutColour = World.cut(dark)
+
+    // The body is a state, never a default.
+    val body: Color? = when {
+        selected -> palette.selectGround
+        pressed -> World.touched(dark)
+        else -> null
+    }
+
+    val flat = if (selected) onInverted(tint, palette) else tint
+    val markColour = if (provisional) flat.copy(alpha = Mass.PROVISIONAL_INTENSITY) else flat
 
     onDrawBehind {
-        drawRect(ground)
-        val markX = if (leading) 0f else size.width - markWidth
-        // The bloom: one extra rect just outside the mark. No blur, no layer,
-        // and it sits in the gutter, so light never touches a text background.
+        val markX = if (leading) x else size.width - x - markWidth
+        val top = gap
+        val height = size.height - gap * 2
+
+        body?.let { drawRect(it) }
+
         if (illuminated) {
-            // A flat rect here reads as a SECOND mark, not as light - the
-            // prototype rendered an orange bloom beside an orange mark and the
-            // pair looked like a two-tone bar. Light falls off; a gradient is
-            // the same single draw call.
+            // Light falls off. A flat rect beside the mark reads as a second
+            // mark, not as light.
             val bloomX = if (leading) markX + markWidth else markX - bloomWidth
             drawRect(
                 brush = Brush.horizontalGradient(
                     colors = if (leading) {
-                        listOf(mark.copy(alpha = Light.BLOOM_ALPHA), mark.copy(alpha = 0f))
+                        listOf(flat.copy(alpha = Light.BLOOM_ALPHA), flat.copy(alpha = 0f))
                     } else {
-                        listOf(mark.copy(alpha = 0f), mark.copy(alpha = Light.BLOOM_ALPHA))
+                        listOf(flat.copy(alpha = 0f), flat.copy(alpha = Light.BLOOM_ALPHA))
                     },
                     startX = bloomX,
                     endX = bloomX + bloomWidth,
                 ),
-                topLeft = Offset(bloomX, 0f),
-                size = Size(bloomWidth, size.height),
+                topLeft = Offset(bloomX, top),
+                size = Size(bloomWidth, height),
             )
         }
-        drawRect(
-            color = markColour,
-            topLeft = Offset(markX, 0f),
-            size = Size(markWidth, size.height),
-        )
-        if (cut) {
-            // Full width, ON TOP of the mark. Stopping the cut at the mark
-            // fuses the marks of adjacent same-kind, same-size files into one
-            // continuous bar, which says "one object" about three of them.
-            drawRect(
-                color = cutColour,
-                topLeft = Offset(0f, size.height - hairline),
-                size = Size(size.width, hairline),
-            )
+
+        if (media != null && !selected && !provisional) {
+            drawRect(media, Offset(markX, top), Size(markWidth, height))
+        } else {
+            drawRect(markColour, Offset(markX, top), Size(markWidth, height))
         }
     }
 }
@@ -129,14 +127,14 @@ fun Modifier.worldObject(
 /**
  * A kind tint adjusted to read against the inverted ground of a selection.
  *
- * In night the selected ground is near-white, so the tint is darkened; in day
- * it is near-black, so the tint is lifted. Scaling toward the ground rather
- * than applying alpha, because alpha over an inverted ground washes every kind
- * toward the same colour and the hue channel is the point.
+ * Scaling toward the ground rather than applying alpha, because alpha over an
+ * inverted ground washes every kind toward the same colour, and the hue
+ * channel is the point. A selected object must keep both its magnitude and its
+ * identity - selection is exactly when the user is deciding what to delete.
  */
 private fun onInverted(tint: Color, palette: Palette): Color =
     if (palette.isDark) {
-        Color(tint.red * 0.38f, tint.green * 0.38f, tint.blue * 0.38f, 1f)
+        Color(tint.red * 0.34f, tint.green * 0.34f, tint.blue * 0.34f, 1f)
     } else {
         Color(
             tint.red + (1f - tint.red) * 0.45f,

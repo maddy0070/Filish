@@ -21,6 +21,12 @@ Source of truth: `app/src/main/java/com/filish/design/`.
 > for anything written below is that **content rows are no longer cards, panels
 > or lenses** — they are cuts in a continuous body, and the leading mark is as
 > wide as the file is big.
+>
+> **V3.2 — The Spine** goes one step further: at rest a content row has **no
+> surface at all**. A file is a mark in the leading gutter and two lines of
+> text on open ground; a body appears only under the finger and on selection.
+> Anything below that describes a row as a surface, a card or a panel is
+> superseded.
 
 ---
 
