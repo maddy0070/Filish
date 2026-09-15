@@ -2,6 +2,13 @@
 
 Status: **design language complete, screens not yet built.**
 
+> **Extended by V3.1 — Mass & Light.** The material model below is intact and
+> still governs every surface. What changed is where it applies: content rows
+> are now *objects* (cuts in a continuous body) rather than lenses, and the
+> lens is reserved for chrome. The band became a variable-width *mark* carrying
+> magnitude. See [visual-language.md](visual-language.md), which supersedes
+> this document on the composition, the environment, light and light mode.
+
 This document is the record of how V3's material was arrived at, what it is,
 and what was deliberately thrown away. It exists because the decisions in it
 are almost all counter-intuitive, and a token file full of numbers with no

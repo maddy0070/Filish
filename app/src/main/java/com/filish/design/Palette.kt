@@ -114,7 +114,11 @@ val LightPalette = Palette(
     ink2 = Color(0xFF6B6760),
     inkOn = Color(0xFFFBF9F6),
 
-    signal = Color(0xFF2E7D6E),
+    // Darkened one step in V3.1. The day environment dropped to give the paper
+    // somewhere to be, which put the signal at 4.43:1 on an object body. A
+    // darker verdigris raises every pairing it appears in rather than just
+    // this one.
+    signal = Color(0xFF2A7365),
     signalWash = Color(0xFFDCEAE6),
 
     selectGround = Color(0xFF23231F),

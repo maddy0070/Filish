@@ -111,6 +111,46 @@ forgetting is a visible omission rather than a silent one.
 
 ---
 
+## V3.1 — motion as a physical event
+
+The art direction ([visual-language.md](visual-language.md)) gives motion
+things to actually be *about*. Each of these is a physical event, not a
+transition:
+
+| Event | What moves |
+|---|---|
+| a folder's size resolving | its mark **grows**, at reduced intensity, and stops when the figure settles |
+| an object selected | the ground inverts; the mark holds its width |
+| a move in flight | the source's mark narrows, the destination's widens, segments cross the gutter |
+| a copy | nothing about the source changes — that is the information |
+| departing to trash | the object shrinks toward somewhere it still exists |
+| destroyed | the mark goes first, then the space closes |
+| restore | the mark returns before the row does |
+| entering a folder | this directory recedes; the child arrives in the space it leaves |
+| a storage insight | the region's marks light; the bloom is the only thing moving |
+| **stalled** | **nothing.** A stalled transfer holds its position rather than pulsing |
+
+That last row is a rule, not an entry. Motion means work. A thing that has
+stopped working must stop moving, or the interface is lying — and a pulsing
+"still trying" animation over a transfer that died is the most common version
+of that lie.
+
+The growing mark is worth calling out: it is not a loading animation standing
+in for a measurement, it **is** the measurement. `SizeResolver` streams partial
+totals with an explicit `settled` flag, and the mark is that flag made visible.
+When it stops growing, the number is true.
+
+### The jitter trap
+
+Marks scale against the largest item in the listing, and that reference moves
+while a folder is being measured. Without `Mass.quantiseLargest()` every
+partial result rescales every mark on screen — a left edge that shivers for the
+whole duration of a walk. Snapping the reference to whole doublings caps the
+rescales at the doublings crossed. This is a motion requirement as much as a
+performance one.
+
+---
+
 ## The performance rule
 
 **At most one continuously animating element on screen at a time, and only

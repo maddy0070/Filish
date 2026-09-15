@@ -14,6 +14,13 @@ Source of truth: `app/src/main/java/com/filish/design/`.
 > explicit and stated there: rounding, and dark-mode translucency.
 >
 > Tokens: `app/src/main/java/com/filish/design/glass/`.
+>
+> **V3.1 — Mass & Light** extends that again with the art direction: the
+> environment, magnitude as a visual channel, and what light is allowed to
+> mean. See [visual-language.md](visual-language.md). The largest consequence
+> for anything written below is that **content rows are no longer cards, panels
+> or lenses** — they are cuts in a continuous body, and the leading mark is as
+> wide as the file is big.
 
 ---
 
