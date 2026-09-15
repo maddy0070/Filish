@@ -611,3 +611,107 @@ decode-cost claim is made here.
 - **Threshold composition** (the display-scale figure at the top of a listing)
   is designed but not built; the browse screen keeps its V2 path rail and
   action bar.
+
+---
+
+# V4.1 — Validation
+
+Every line below is tagged **MEASURED** (observed here), **INFERRED**
+(reasoned from a measurement), or **NOT TESTED**.
+
+## Device status
+
+**NOT TESTED — no device, no emulator.** `adb devices` empty, no emulator
+package, `/dev/kvm` absent. No frame rate, decode time or memory figure appears
+anywhere in this document or in the code comments. The pass is prepared in
+[device-qa.md](device-qa.md) with instrumentation, datasets and expected
+observations.
+
+## What was measured
+
+| | Result |
+|---|---|
+| Release APK | **3.55 MB**, package `com.filish`, **no INTERNET permission**, permission set unchanged |
+| Debug APK | 13.3 MB, no INTERNET |
+| Test suite | **221 passing** (from 214) |
+| 5,000 files, real pipeline | 5,040 entries listed in **66 ms**; whole spine geometry in **4 ms** |
+| Spine stability, real `SizeResolver` | 3 partials, 1 rescale, **0 scale decreases** |
+| Late-largest (500 MB → 4 GB) | 3 partials, 2 rescales; the 500 MB file 25.9 dp → 21.7 dp |
+| Width spread | 568 files across a realistic distribution → **13 distinguishable widths** |
+| Row height | floor holds at font scale 1.0 / 1.3 / 2.0; grows with type and with wrapping |
+
+## Bug found and fixed: the spine snapped
+
+`SpineStabilityTest` drove the real resolver over a real tree and measured a
+bystander file's mark moving **11 dp in one step**, and the folder being
+measured moving **20.9 dp**, when a 9.6 GB folder resolved.
+
+The new proportions were *correct* — something 200× larger had appeared, so
+everything else genuinely is smaller relative to it. Arriving at them in one
+frame is what was wrong.
+
+The first version of the test asserted a 2 dp cap, which would have been the
+wrong fix: capping the change would make the mark lie about the new scale. What
+matters is not how far a mark moves but **how often**, because a rare correct
+change can be animated and a frequent one cannot. Quantisation already caps the
+frequency, so the fix was to settle rather than snap — `Motion.CONSIDERED`,
+which the motion system already defines as "a value settling".
+
+`contentObject` now takes an animatable fraction rather than bytes-and-scale.
+The "a bigger file never draws a narrower mark" contract stays in
+`Mass.relative`, where it is tested.
+
+## Characterised limitation: narrow-spread directories
+
+**MEASURED** (`v41-relative-scale-night.png`, `v41-huge-files.png`).
+
+The channel discriminates well when a directory spans many doublings — 8 GB →
+6.4 → 4.1 → 2.0 → 900 MB → 120 MB → 4 KB renders as a clean descending
+staircase — and poorly when it spans few. A folder of 2–7 GB videos is about
+1.8 doublings wide, so every mark lands near the ceiling and the spine goes
+flat.
+
+Whether that is an honest report ("these are all big") or a failure is a
+judgement about what a user concludes, which a render cannot settle. It is the
+first item on the device checklist.
+
+**Smallest correction, NOT IMPLEMENTED:** make `Mass.SPAN` adaptive — use the
+listing's actual spread, clamped — instead of a fixed 16 doublings.
+Deliberately not built, because deciding it from theory is what this round
+exists to stop.
+
+## The relative-scale question
+
+**MEASURED, not resolved.** The same 40 MB file renders at the ceiling among
+tiny neighbours and at ~10 dp among huge ones; the figure reads 40 MB in both.
+Both readings are locally correct. Whether the difference reads as useful
+context or as the mark lying is the question for the device pass, and the QA
+datasets build exactly those two folders.
+
+## Instrumentation added
+
+Debug builds only, behind `BuildConfig.DEBUG`:
+
+- **QA readout** over the browse list — mass scale, largest magnitude, distinct
+  mark widths, marks at floor/ceiling, measurement progress, selection, sort,
+  flag state. Deliberately a plain monospace slab so it can never be mistaken
+  for part of FILISH.
+- **QA dataset builder** — eight scenarios of sparse files under the app's own
+  external files directory. No permission needed; uninstalling removes them.
+  A sparse file is not a photograph, so media signatures cannot be evaluated
+  against them — that scenario needs a real camera roll.
+
+## Still off, deliberately
+
+**Media signatures** (`spineMedia`, default false). **NOT MEASURED** — the only
+part of the browse list that costs a decode, and nothing here can measure a
+decode. The kind-tint fallback is a complete design, so shipping with it off
+costs richness and nothing else.
+
+## Unresolved risks
+
+1. Scroll performance at 5,000 rows — **NOT TESTED**.
+2. Thumbnail decode cost — **NOT TESTED**.
+3. Relative scaling — **MEASURED, not judged**.
+4. Narrow-spread flatness — **MEASURED**, correction proposed, not built.
+5. TalkBack ordering and phrasing — **NOT TESTED** on a real screen reader.

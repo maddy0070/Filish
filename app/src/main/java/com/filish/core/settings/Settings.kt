@@ -59,6 +59,8 @@ data class FilishSettings(
      * off costs nothing but richness.
      */
     val spineMedia: Boolean = false,
+    /** Debug QA readout over the browse list. Only reachable in debug builds. */
+    val qaOverlay: Boolean = false,
 
     // Files
     val showHidden: Boolean = false,
@@ -114,6 +116,7 @@ class SettingsStore(private val context: Context) {
         val viewMode = stringPreferencesKey("view_mode")
         val showThumbnails = booleanPreferencesKey("show_thumbnails")
         val spineMedia = booleanPreferencesKey("spine_media")
+        val qaOverlay = booleanPreferencesKey("qa_overlay")
         val showHidden = booleanPreferencesKey("show_hidden")
         val showExtensions = booleanPreferencesKey("show_extensions")
         val sortKey = stringPreferencesKey("sort_key")
@@ -149,6 +152,7 @@ class SettingsStore(private val context: Context) {
             ?: ViewMode.List,
         showThumbnails = this[Keys.showThumbnails] ?: true,
         spineMedia = this[Keys.spineMedia] ?: false,
+        qaOverlay = this[Keys.qaOverlay] ?: false,
         showHidden = this[Keys.showHidden] ?: false,
         showExtensions = this[Keys.showExtensions] ?: true,
         sortKey = this[Keys.sortKey]?.let { runCatching { SortKey.valueOf(it) }.getOrNull() }
@@ -176,6 +180,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setShowThumbnails(v: Boolean) = put { it[Keys.showThumbnails] = v }
 
     suspend fun setSpineMedia(v: Boolean) = put { it[Keys.spineMedia] = v }
+
+    suspend fun setQaOverlay(v: Boolean) = put { it[Keys.qaOverlay] = v }
     suspend fun setShowHidden(v: Boolean) = put { it[Keys.showHidden] = v }
     suspend fun setShowExtensions(v: Boolean) = put { it[Keys.showExtensions] = v }
     suspend fun setSort(spec: SortSpec) = put {

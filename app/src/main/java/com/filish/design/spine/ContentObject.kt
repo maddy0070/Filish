@@ -56,10 +56,19 @@ import com.filish.design.glass.World
  */
 fun Modifier.contentObject(
     palette: Palette,
-    /** Magnitude in bytes. Use 0 when genuinely unknown. */
-    bytes: Long,
-    /** The quantised reference for this listing. See [Mass.quantiseLargest]. */
-    scale: Long,
+    /**
+     * Magnitude as 0..1, from [Mass.relative].
+     *
+     * A FRACTION rather than bytes-and-scale, because it has to be animatable.
+     * When a late folder resolves, the listing's reference rises and every
+     * other mark legitimately narrows - measurement put a bystander file's mark
+     * at an 11dp jump in a single step, which snaps. The caller interpolates
+     * this value so the spine settles into its new proportions instead.
+     *
+     * The "a bigger file never draws a narrower mark" contract lives in
+     * [Mass.relative], which is where it is tested.
+     */
+    relative: Float,
     /** Fallback identity when no media signature exists. */
     tint: Color,
     /**
@@ -76,7 +85,7 @@ fun Modifier.contentObject(
     illuminated: Boolean = false,
 ): Modifier = drawWithCache {
     val dark = palette.isDark
-    val markWidth = Mass.markWidth(bytes, scale).toPx()
+    val markWidth = (Mass.markMin + (Mass.markMax - Mass.markMin) * relative.coerceIn(0f, 1f)).toPx()
     val gap = Spine.markGap.toPx()
     val x = Spine.gutter.toPx()
     val leading = layoutDirection == LayoutDirection.Ltr

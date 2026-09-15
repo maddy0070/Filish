@@ -205,6 +205,47 @@ fun SettingsScreen(
             )
         }
 
+
+        /*
+         * DEVICE QA — debug builds only.
+         *
+         * Guarded by BuildConfig.DEBUG so a release build cannot reach it at
+         * all, and placed last so it never competes with anything a real user
+         * came here for. The dataset buttons write only inside the app's own
+         * external files directory, so no storage permission is involved and
+         * uninstalling removes everything.
+         */
+        if (com.filish.BuildConfig.DEBUG) {
+            group("Device QA (debug build)") {
+                Switch(
+                    label = "QA readout",
+                    detail = "Shows the mass scale, mark spread and measurement state over " +
+                        "the browse list. The spine's numbers are invisible on screen, and " +
+                        "a tester cannot tell a stable scale from a lucky one.",
+                    checked = settings.qaOverlay,
+                    onChange = { scope.launch { store.setQaOverlay(it) } },
+                )
+                Gap(Space.group)
+                Switch(
+                    label = "Media signatures in the spine",
+                    detail = "Tints each photograph's mark with tones sampled from the " +
+                        "photograph. The only part of the browse list that costs a decode. " +
+                        "OFF until measured on hardware - the kind-tint fallback is a " +
+                        "finished design, not a degraded one.",
+                    checked = settings.spineMedia,
+                    onChange = { scope.launch { store.setSpineMedia(it) } },
+                )
+            }
+            item {
+                Gap(Space.group)
+                SectionLabel("QA datasets", Modifier.padding(horizontal = Space.gutter))
+                Gap(Space.near)
+                Column(Modifier.padding(horizontal = Space.gutter)) {
+                    com.filish.feature.debug.QaDatasetControls()
+                }
+            }
+        }
+
         item {
             Gap(Space.zone - 10.dp)
             SectionLabel("What Filish does", Modifier.padding(horizontal = Space.gutter))

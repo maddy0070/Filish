@@ -35,6 +35,7 @@ import com.filish.core.model.Format
 import com.filish.design.Filish
 import com.filish.design.Glyphs
 import com.filish.design.Motion
+import com.filish.design.glass.Mass
 import com.filish.design.Space
 import com.filish.design.component.BasicTextCompat
 import com.filish.design.component.Gap
@@ -121,6 +122,28 @@ fun FileRow(
     val pressed by interaction.collectIsPressedAsState()
 
     val bytes = magnitudeOf(node, facts)
+
+    /*
+     * THE SPINE SETTLES; IT DOES NOT SNAP.
+     *
+     * Marks are scaled against the largest object in the listing, and that
+     * reference rises when a late folder resolves - so every other mark
+     * legitimately narrows. SpineStabilityTest measured a bystander file's mark
+     * moving 11dp in a single step when a 9.6 GB folder landed, and the folder
+     * being measured moving 21dp. The new proportions are correct; arriving at
+     * them in one frame is not.
+     *
+     * CONSIDERED is the right duration by the motion system's own rules: this
+     * is "motion carrying real information - a value settling". It fires only
+     * when the scale actually changes, which quantisation caps at a handful of
+     * times per directory, and it stops.
+     */
+    val targetRelative = Mass.relative(bytes, massScale)
+    val relative by animateFloatAsState(
+        targetValue = targetRelative,
+        animationSpec = if (reduce) tween(Motion.REDUCED) else tween(Motion.CONSIDERED, easing = Motion.adjust),
+        label = "markWidth",
+    )
     val measuring = node.isDirectory && facts?.measured?.settled == false
     val ink = if (selected) palette.selectInk else palette.ink0
     val inkQuiet = if (selected) palette.selectInk.copy(alpha = 0.72f) else palette.ink2
@@ -184,8 +207,7 @@ fun FileRow(
                 } else {
                     Modifier.contentObject(
                         palette = palette,
-                        bytes = bytes,
-                        scale = massScale,
+                        relative = relative,
                         tint = Glyphs.tintFor(node.kind, palette),
                         signature = if (showThumbnails) signature else null,
                         selected = selected,

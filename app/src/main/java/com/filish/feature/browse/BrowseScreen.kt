@@ -74,6 +74,7 @@ fun BrowseScreen(
     clipboard: Clipboard,
     showThumbnails: Boolean,
     spineMedia: Boolean,
+    qaOverlay: Boolean = false,
     showExtensions: Boolean,
     onOpen: (FileNode) -> Unit,
     onSelect: (FileNode) -> Unit,
@@ -131,6 +132,13 @@ fun BrowseScreen(
                 } else {
                     Gap(Space.near + 1.dp)
                 }
+            }
+
+            // DEBUG ONLY. The readout sits between the chrome and the list so
+            // it lines up with the spine a tester is watching, and it is
+            // unreachable in a release build.
+            if (com.filish.BuildConfig.DEBUG && qaOverlay) {
+                com.filish.feature.debug.QaOverlay(state, spineMedia)
             }
 
             Box(Modifier.weight(1f)) {
